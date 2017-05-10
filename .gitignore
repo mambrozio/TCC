@@ -1,0 +1,3 @@
+./examples/*.byte
+c-minilua
+README.txt
