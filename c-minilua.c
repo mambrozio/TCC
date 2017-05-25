@@ -1104,7 +1104,7 @@ typedef struct MiniLuaState {
 #define RK(n) (ISK(n) ? K(INDEXK(n)) : R(n))
 
 //
-int step(MiniLuaState *mls, Instruction inst, uint32_t op, Value *constants) {
+size_t step(MiniLuaState *mls, Instruction inst, uint32_t op, Value *constants) {
     size_t pc_offset = 0;
     switch (op) {
         case OP_MOVE: {
