@@ -80,7 +80,7 @@ typedef struct MiniLuaState {
 // --- End of type definitions
 
 
-extern "C" int step(MiniLuaState, Instruction, uint32_t, Value *);
+extern "C" size_t step(MiniLuaState, Instruction, uint32_t, Value *);
 
 
 void interpret(MiniLuaState *mls) {
@@ -211,77 +211,85 @@ void interpret(MiniLuaState *mls) {
     std::vector<llvm::Value *> temp;
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true))); //mls offset
-    llvm::Value *mlsGEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+    llvm::Value *mls_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
 
     //mls->proto (Proto*)
-    llvm::Value *protoLD = builder.CreateLoad(mlsGEP);
+    llvm::Value *proto_LD = builder.CreateLoad(mls_GEP);
 
 
     temp.clear();
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 9, true))); //k offset
-    llvm::Value *kGEP = builder.CreateInBoundsGEP(proto_struct_type, protoLD, temp);
+    llvm::Value *k_GEP = builder.CreateInBoundsGEP(proto_struct_type, proto_LD, temp);
 
     //mls->proto->k (Value*)
-    llvm::Value *kLD = builder.CreateLoad(kGEP);
+    llvm::Value *k_LD = builder.CreateLoad(k_GEP);
 
 
     temp.clear();
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 10, true))); //code offset
-    llvm::Value *codeGEP = builder.CreateInBoundsGEP(proto_struct_type, protoLD, temp);
+    llvm::Value *code_GEP = builder.CreateInBoundsGEP(proto_struct_type, proto_LD, temp);
 
     //mls->proto->code* (i32*)
-    llvm::Value *codeLD = builder.CreateLoad(codeGEP);
+    llvm::Value *code_LD = builder.CreateLoad(code_GEP);
 
     //mls->proto->code[i] (i32)
-    llvm::Value *codeValue = builder.CreateLoad(codeLD); //code[0]
-    
+    llvm::Value *code_value = builder.CreateLoad(code_LD); //code[0]
+
     //op = mls->proto->code && 0x3F
-    llvm::Value *opValue = builder.CreateAnd(codeValue, llvm::APInt(32, 0x3F, true));
+    llvm::Value *op_value = builder.CreateAnd(code_value, llvm::APInt(32, 0x3F, true));
     
     //here we have all initializations needed
-    //mls* (mlsGEP), inst (codeValue), op (opValue), constants (kLD)
+    //mls* (mls_GEP), inst (code_value), op (op_value), constants (k_LD)
 
     //check if op is OP_RETURN
-    llvm::Value *isReturn = builder.CreateICmpEQ(opValue, llvm::ConstantInt::get(context, llvm::APInt(32, OP_RETURN, true)));
+    llvm::Value *is_return = builder.CreateICmpEQ(op_value, llvm::ConstantInt::get(context, llvm::APInt(32, OP_RETURN, true)));
 
     //create the conditional break to end_block (if true) or to loop_block (if false)
-    builder.CreateCondBr(isReturn, end_block, loop_block);
+    builder.CreateCondBr(is_return, end_block, loop_block);
 
 
 
     // --- Create code for the loop block
     builder.SetInsertPoint(loop_block);
     
-    llvm::PHINode *inst_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2);
-    llvm::PHINode *code_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2);
+    //creating phi nodes
+    llvm::PHINode *inst_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //inst = mls->proto->code[pc++]
+    llvm::PHINode *op_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //op (inst & 0x3f)
     llvm::PHINode *pc_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2);
     
+    //increment pc
+    llvm::Value *pc = builder.CreateAdd(pc_phi_node, llvm::ConstantInt::get(context, llvm::APInt(64, 1, true)));
+
+    //calling step function
+    std::vector<llvm::Value *> step_args;
+    step_args.push_back(_mls);
+    step_args.push_back(op_phi_node);
+    step_args.push_back(inst_phi_node);
+    step_args.push_back(k_LD);
+    llvm::Value *step_return = builder.CreateCall(step_function, step_args, "pc");
+
+    //adding pc_offset to pc
+    llvm::Value *new_pc = builder.CreateAdd(pc, step_return);
+    
+    
+    
     
 
 
 
-
-    std::vector<llvm::Value *> step_args;
-    step_args.push_back(_mls);
-    step_args.push_back(codeValue);
-    step_args.push_back(opValue);
-    step_args.push_back(kLD);
-
-    builder.CreateCall(step_function, step_args, "pc");
-
     //check if op is OP_RETURN
-    llvm::Value *isReturn2 = builder.CreateICmpEQ(opValue, llvm::ConstantInt::get(context, llvm::APInt(32, OP_RETURN, true)));
+    llvm::Value *is_return_2 = builder.CreateICmpEQ(op_value, llvm::ConstantInt::get(context, llvm::APInt(32, OP_RETURN, true)));
 
     //create the conditional break to end_block (if true) or to loop_block (if false)
-    builder.CreateCondBr(isReturn2, end_block, loop_block);
+    builder.CreateCondBr(is_return_2, end_block, loop_block);
     
 
 
     // --- Create code for the end block
     builder.SetInsertPoint(end_block);
-    builder.CreateRet(llvm::ConstantInt::get(builder.getInt32Ty(), 0));
+    builder.CreateRetVoid();
     
 
 
