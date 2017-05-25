@@ -23,6 +23,18 @@
 
 #define OP_RETURN 38
 
+#define SIZE_A          8
+#define SIZE_B          9
+#define SIZE_C          9
+
+#define SIZE_OP         6
+
+#define POS_OP          0
+#define POS_A           (POS_OP + SIZE_OP)
+#define POS_C           (POS_A + SIZE_A)
+#define POS_B           (POS_C + SIZE_C)
+
+
 
 // --- Type definitions copied from c-minilua.c
 typedef uint8_t Byte;
@@ -162,7 +174,7 @@ void interpret(MiniLuaState *mls) {
     args.push_back(llvm::Type::getInt32Ty(context)); //inst
     args.push_back(llvm::Type::getInt32Ty(context)); //op
     args.push_back(p_value_struct_type);             //constants
-    llvm::FunctionType *step_type = llvm::FunctionType::get(llvm::Type::getInt32Ty(context), args, false);
+    llvm::FunctionType *step_type = llvm::FunctionType::get(llvm::Type::getInt64Ty(context), args, false);
     // std::cout << "Function Step type dump:\n";
     // step_type->dump();
     // std::cout << "\n";
@@ -235,11 +247,11 @@ void interpret(MiniLuaState *mls) {
     llvm::Value *code_LD = builder.CreateLoad(code_GEP);
 
     //mls->proto->code[i] (i32)
-    llvm::Value *code_value = builder.CreateLoad(code_LD); //code[0]
+    llvm::Value *code_value = builder.CreateLoad(code_LD); //code[i]
 
     //op = mls->proto->code && 0x3F
     llvm::Value *op_value = builder.CreateAnd(code_value, llvm::APInt(32, 0x3F, true));
-    
+
     //here we have all initializations needed
     //mls* (mls_GEP), inst (code_value), op (op_value), constants (k_LD)
 
@@ -255,10 +267,11 @@ void interpret(MiniLuaState *mls) {
     builder.SetInsertPoint(loop_block);
     
     //creating phi nodes
+    //TODO try AddIncoming to PHINode
     llvm::PHINode *inst_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //inst = mls->proto->code[pc++]
     llvm::PHINode *op_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //op (inst & 0x3f)
     llvm::PHINode *pc_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2);
-    
+
     //increment pc
     llvm::Value *pc = builder.CreateAdd(pc_phi_node, llvm::ConstantInt::get(context, llvm::APInt(64, 1, true)));
 
@@ -268,19 +281,38 @@ void interpret(MiniLuaState *mls) {
     step_args.push_back(op_phi_node);
     step_args.push_back(inst_phi_node);
     step_args.push_back(k_LD);
-    llvm::Value *step_return = builder.CreateCall(step_function, step_args, "pc");
+    llvm::Value *step_return = builder.CreateCall(step_function, step_args);
 
     //adding pc_offset to pc
     llvm::Value *new_pc = builder.CreateAdd(pc, step_return);
     
     
+    //TODO check if this is really necessary. The generated IR has the same load
+    // apparently yes, because as llvm ir is ssa, the assignment in the entry block is unique
+    // and references the initial value. Here we have to make another assignment to get
+    // the updated value.
+    // Maybe the CreateLoad(mls_GEP) is the only one that is unnecessary
+    llvm::Value *proto_LD_loop = builder.CreateLoad(mls_GEP);
     
+    temp.clear();
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 10, true)));
+    llvm::Value *code_GEP_loop = builder.CreateInBoundsGEP(proto_struct_type, proto_LD_loop, temp);
     
+    llvm::Value *code_LD_loop = builder.CreateLoad(code_GEP_loop);
+    
+    //get the code[...]
+    temp.clear();
+    temp.push_back(new_pc);
+    llvm::Value *code_GEP_offset_loop = builder.CreateInBoundsGEP(llvm::Type::getInt32PtrTy(context), code_LD_loop, temp);
+    
+    llvm::Value *code_LD_offset_loop = builder.CreateLoad(code_GEP_offset_loop);
 
-
+    //op = mls->proto->code && 0x3F
+    llvm::Value *op_value_loop = builder.CreateAnd(code_value, llvm::APInt(32, 0x3F, true));
 
     //check if op is OP_RETURN
-    llvm::Value *is_return_2 = builder.CreateICmpEQ(op_value, llvm::ConstantInt::get(context, llvm::APInt(32, OP_RETURN, true)));
+    llvm::Value *is_return_2 = builder.CreateICmpEQ(op_value_loop, llvm::ConstantInt::get(context, llvm::APInt(32, OP_RETURN, true)));
 
     //create the conditional break to end_block (if true) or to loop_block (if false)
     builder.CreateCondBr(is_return_2, end_block, loop_block);
@@ -289,8 +321,14 @@ void interpret(MiniLuaState *mls) {
 
     // --- Create code for the end block
     builder.SetInsertPoint(end_block);
-    builder.CreateRetVoid();
+
+    //creating phi node
+    llvm::PHINode *phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //op
     
+
+
+    builder.CreateRetVoid();
+
 
 
     //dump module to check ir
