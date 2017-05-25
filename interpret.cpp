@@ -267,7 +267,7 @@ void interpret(MiniLuaState *mls) {
     builder.SetInsertPoint(loop_block);
 
     //creating phi nodes
-    //TODO try AddIncoming to PHINode
+    //TODO try addIncoming to PHINode
     llvm::PHINode *inst_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //inst = mls->proto->code[pc++]
     llvm::PHINode *op_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //op (inst & 0x3f)
     llvm::PHINode *pc_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2);
@@ -304,12 +304,12 @@ void interpret(MiniLuaState *mls) {
     //get the code[...]
     temp.clear();
     temp.push_back(new_pc);
-    llvm::Value *code_GEP_offset_loop = builder.CreateInBoundsGEP(llvm::Type::getInt32PtrTy(context), code_LD_loop, temp);
+    llvm::Value *code_GEP_offset_loop = builder.CreateInBoundsGEP(llvm::Type::getInt32Ty(context), code_LD_loop, temp);
 
     llvm::Value *code_LD_offset_loop = builder.CreateLoad(code_GEP_offset_loop);
 
     //op = mls->proto->code && 0x3F
-    llvm::Value *op_value_loop = builder.CreateAnd(code_value, llvm::APInt(32, 0x3F, true));
+    llvm::Value *op_value_loop = builder.CreateAnd(code_LD_offset_loop, llvm::APInt(32, 0x3F, true));
 
     //check if op is OP_RETURN
     llvm::Value *is_return_2 = builder.CreateICmpEQ(op_value_loop, llvm::ConstantInt::get(context, llvm::APInt(32, OP_RETURN, true)));
@@ -324,6 +324,8 @@ void interpret(MiniLuaState *mls) {
 
     //creating phi node
     llvm::PHINode *out_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //op
+    out_phi_node->addIncoming(code_value, entry_block);
+    out_phi_node->addIncoming(code_LD_offset_loop, loop_block);
 
     //create a
     llvm::Value *shift_a = builder.CreateLShr(out_phi_node, llvm::APInt(32, POS_A, true));
