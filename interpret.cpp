@@ -267,7 +267,6 @@ void interpret(MiniLuaState *mls) {
     builder.SetInsertPoint(loop_block);
 
     //creating phi nodes
-    //TODO try addIncoming to PHINode
     llvm::PHINode *inst_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //inst = mls->proto->code[pc++]
     llvm::PHINode *op_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //op (inst & 0x3f)
     llvm::PHINode *pc_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2);
@@ -316,6 +315,14 @@ void interpret(MiniLuaState *mls) {
 
     //create the conditional break to end_block (if true) or to loop_block (if false)
     builder.CreateCondBr(is_return_2, end_block, loop_block);
+
+    //updating PHI Nodes
+    inst_phi_node->addIncoming(op_value_loop, loop_block);
+    inst_phi_node->addIncoming(op_value, entry_block);
+    op_phi_node->addIncoming(code_LD_offset_loop, loop_block);
+    op_phi_node->addIncoming(code_value, entry_block);
+    pc_phi_node->addIncoming(new_pc, loop_block);
+    pc_phi_node->addIncoming(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)), entry_block);
 
 
 
