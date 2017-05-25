@@ -4,7 +4,7 @@
 * Date: May, 2017
 *
 * To compile , execute on terminal :
-* clang++ -o onefunction onefunction.cpp `llvm-config --cxxflags --ldflags --libs all --system-libs`
+* clang++ -o interpret interpret.cpp `llvm-config --cxxflags --ldflags --libs all --system-libs`
 */
 
 #include <memory>
@@ -21,12 +21,15 @@
 #include <llvm/Support/DynamicLibrary.h>
 //
 
+#define OP_RETURN 38
+
+
+// --- Type definitions copied from c-minilua.c
 typedef uint8_t Byte;
 typedef int32_t Int;
 typedef uint32_t Instruction;
 typedef int64_t lua_integer;
 typedef double lua_float;
-
 
 typedef enum { SHORT_STRING, LONG_STRING } StringType;
 typedef struct {
@@ -74,16 +77,14 @@ typedef struct MiniLuaState {
     size_t return_begin;
     size_t return_end;
 } MiniLuaState;
+// --- End of type definitions
 
 
 extern "C" int step(MiniLuaState, Instruction, uint32_t, Value *);
 
 
-typedef int (*step_func)(MiniLuaState, Instruction, uint32_t, Value *);
+void interpret(MiniLuaState *mls) {
 
-
-int interpret(MiniLuaState *mls) {
-    
     //necessary LLVM initializations
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmPrinter();
@@ -93,14 +94,11 @@ int interpret(MiniLuaState *mls) {
     llvm::LLVMContext context;
     std::unique_ptr<llvm::Module> Owner(new llvm::Module("top", context));
     llvm::Module *module = Owner.get();
-    
-    //create irbuilder
-    llvm::IRBuilder<> builder(context);
 
-    
-    //Declarations
+
+    // --- Declarations
     //treating string_type enum as an int32
-    
+
     //create String struct
     llvm::StructType *string_struct_type = llvm::StructType::create(context, "String");
     llvm::PointerType *p_string_struct_type = llvm::PointerType::get(string_struct_type, 0);
@@ -108,10 +106,10 @@ int interpret(MiniLuaState *mls) {
     string_elements.push_back(llvm::Type::getInt32Ty(context));   //typ
     string_elements.push_back(llvm::Type::getInt8PtrTy(context)); //*str
     string_struct_type->setBody(string_elements);
-    std::cout << "Struct String dump:\n";
-    string_struct_type->dump();
-    std::cout << "\n";
-    
+    // std::cout << "Struct String dump:\n";
+    // string_struct_type->dump();
+    // std::cout << "\n";
+
     //create Value struct
     llvm::StructType *value_struct_type = llvm::StructType::create(context, "Value");
     llvm::PointerType *p_value_struct_type = llvm::PointerType::get(value_struct_type, 0);
@@ -119,10 +117,10 @@ int interpret(MiniLuaState *mls) {
     value_elements.push_back(llvm::Type::getInt32Ty(context)); //typ
     value_elements.push_back(llvm::Type::getInt64Ty(context)); //u
     value_struct_type->setBody(value_elements);
-    std::cout << "Struct Value dump:\n";
-    value_struct_type->dump();
-    std::cout << "\n";
-    
+    // std::cout << "Struct Value dump:\n";
+    // value_struct_type->dump();
+    // std::cout << "\n";
+
     //create Proto struct
     llvm::StructType *proto_struct_type = llvm::StructType::create(context, "Proto");
     llvm::PointerType *p_proto_struct_type = llvm::PointerType::get(proto_struct_type, 0);
@@ -140,10 +138,10 @@ int interpret(MiniLuaState *mls) {
     proto_elements.push_back(llvm::Type::getInt32PtrTy(context)); //*code
     proto_elements.push_back(p_string_struct_type);               //*source
     proto_struct_type->setBody(proto_elements);
-    std::cout << "Struct Proto dump:\n";
-    proto_struct_type->dump();
-    std::cout << "\n";
-    
+    // std::cout << "Struct Proto dump:\n";
+    // proto_struct_type->dump();
+    // std::cout << "\n";
+
     //create MiniLuaState struct
     llvm::StructType *miniluastate_struct_type = llvm::StructType::create(context, "MiniLuaState");
     llvm::PointerType *p_miniluastate_struct_type = llvm::PointerType::get(miniluastate_struct_type, 0);
@@ -153,10 +151,10 @@ int interpret(MiniLuaState *mls) {
     miniluastate_elements.push_back(llvm::Type::getInt64Ty(context)); //return_begin
     miniluastate_elements.push_back(llvm::Type::getInt64Ty(context)); //return_end
     miniluastate_struct_type->setBody(miniluastate_elements);
-    std::cout << "Struct MiniLuaState dump:\n";
-    miniluastate_struct_type->dump();
-    std::cout << "\n";
-    
+    // std::cout << "Struct MiniLuaState dump:\n";
+    // miniluastate_struct_type->dump();
+    // std::cout << "\n";
+
     //create declaration for step
     //int step(MiniLuaState *mls, Instruction inst, uint32_t op, Value *constants);
     std::vector<llvm::Type *> args;
@@ -165,66 +163,132 @@ int interpret(MiniLuaState *mls) {
     args.push_back(llvm::Type::getInt32Ty(context)); //op
     args.push_back(p_value_struct_type);             //constants
     llvm::FunctionType *step_type = llvm::FunctionType::get(llvm::Type::getInt32Ty(context), args, false);
-    std::cout << "Function Step type dump:\n";
-    step_type->dump();
-    std::cout << "\n";
-    
-    //End of declarations
-    
+    // std::cout << "Function Step type dump:\n";
+    // step_type->dump();
+    // std::cout << "\n";
+    // --- End of declarations
+
 
     //declare the external function
     auto step_function = llvm::Function::Create(step_type, llvm::Function::ExternalLinkage, "step", module);
 //    llvm::sys::DynamicLibrary::AddSymbol("step", reinterpret_cast<void*>(&step));
 
     //define the interpret function
-    auto functype = llvm::FunctionType::get(builder.getInt32Ty(), p_miniluastate_struct_type, false);
+    auto functype = llvm::FunctionType::get(llvm::Type::getInt32Ty(context), p_miniluastate_struct_type, false);
     auto mainfunc = llvm::Function::Create(functype, llvm::Function::ExternalLinkage, "interpret", module);
-    
+
     //get arguments
     auto argiter = mainfunc->arg_begin();
-    llvm::Value *arg_mls = &*argiter++;
-    arg_mls->setName("mls");
-    
+    llvm::Value *_mls = &*argiter++;
+    //_mls->setName("arg");
+
     std::cout << "Arguments received by interpret function dump:\n";
-    arg_mls->dump();
-    //std::cout << arg_mls;
+    _mls->dump();
+    //std::cout << _mls;
     std::cout << "\n";
-    
 
-    //create the block with the step's call
-    auto entryblock = llvm::BasicBlock::Create(context, "entry", mainfunc);
-    builder.SetInsertPoint(entryblock);
-    
-    //get arguments for step function call
+
+    //create irbuilder
+    llvm::IRBuilder<> builder(context);
+
+
+    // --- Creating Blocks
+    //create the entry block
+    auto entry_block = llvm::BasicBlock::Create(context, "entry", mainfunc);
+
+    //create the loop block
+    auto loop_block = llvm::BasicBlock::Create(context, "loop", mainfunc);
+
+    //create the end block
+    auto end_block = llvm::BasicBlock::Create(context, "end", mainfunc);
+
+
+
+    // --- Create code for the entry block
+    builder.SetInsertPoint(entry_block);
+
+    //mls (MiniLuaState)
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(/*nbits*/64, 0, /*bool*/true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(/*nbits*/32, 0, /*bool*/true)));
-    llvm::Value *mlsp = builder.CreateInBoundsGEP(miniluastate_struct_type, arg_mls, temp, "mls");
-    
-    llvm::Value *protop = builder.CreateLoad(mlsp, "proto");
-    
-    std::vector<llvm::Value *> temp1;
-    temp1.push_back(llvm::ConstantInt::get(context, llvm::APInt(/*nbits*/64, 0, /*bool*/true)));
-    temp1.push_back(llvm::ConstantInt::get(context, llvm::APInt(/*nbits*/32, 9, /*bool*/true)));
-    llvm::Value *proto = builder.CreateInBoundsGEP(proto_struct_type, protop, temp1, "proto");
-    
-    llvm::Value *valuep = builder.CreateLoad(proto, "proto");
-    
-    std::vector<llvm::Value *> temp2;
-    temp2.push_back(llvm::ConstantInt::get(context, llvm::APInt(/*nbits*/64, 0, /*bool*/true)));
-    temp2.push_back(llvm::ConstantInt::get(context, llvm::APInt(/*nbits*/32, 10, /*bool*/true)));
-    llvm::Value *value = builder.CreateInBoundsGEP(proto_struct_type, protop, temp2, "value");
-    
-    builder.CreateCall(step_function, arg_mls, "pc");
-    builder.CreateRet(llvm::ConstantInt::get(builder.getInt32Ty(), 0));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true))); //mls offset
+    llvm::Value *mlsGEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
 
+    //mls->proto (Proto*)
+    llvm::Value *protoLD = builder.CreateLoad(mlsGEP);
+
+
+    temp.clear();
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 9, true))); //k offset
+    llvm::Value *kGEP = builder.CreateInBoundsGEP(proto_struct_type, protoLD, temp);
+
+    //mls->proto->k (Value*)
+    llvm::Value *kLD = builder.CreateLoad(kGEP);
+
+
+    temp.clear();
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 10, true))); //code offset
+    llvm::Value *codeGEP = builder.CreateInBoundsGEP(proto_struct_type, protoLD, temp);
+
+    //mls->proto->code* (i32*)
+    llvm::Value *codeLD = builder.CreateLoad(codeGEP);
+
+    //mls->proto->code[i] (i32)
+    llvm::Value *codeValue = builder.CreateLoad(codeLD); //code[0]
+    
+    //op = mls->proto->code && 0x3F
+    llvm::Value *opValue = builder.CreateAnd(codeValue, llvm::APInt(32, 0x3F, true));
+    
+    //here we have all initializations needed
+    //mls* (mlsGEP), inst (codeValue), op (opValue), constants (kLD)
+
+    //check if op is OP_RETURN
+    llvm::Value *isReturn = builder.CreateICmpEQ(opValue, llvm::ConstantInt::get(context, llvm::APInt(32, OP_RETURN, true)));
+
+    //create the conditional break to end_block (if true) or to loop_block (if false)
+    builder.CreateCondBr(isReturn, end_block, loop_block);
+
+
+
+    // --- Create code for the loop block
+    builder.SetInsertPoint(loop_block);
+    
+    llvm::PHINode *inst_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2);
+    llvm::PHINode *code_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2);
+    llvm::PHINode *pc_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2);
     
     
+
+
+
+
+    std::vector<llvm::Value *> step_args;
+    step_args.push_back(_mls);
+    step_args.push_back(codeValue);
+    step_args.push_back(opValue);
+    step_args.push_back(kLD);
+
+    builder.CreateCall(step_function, step_args, "pc");
+
+    //check if op is OP_RETURN
+    llvm::Value *isReturn2 = builder.CreateICmpEQ(opValue, llvm::ConstantInt::get(context, llvm::APInt(32, OP_RETURN, true)));
+
+    //create the conditional break to end_block (if true) or to loop_block (if false)
+    builder.CreateCondBr(isReturn2, end_block, loop_block);
+    
+
+
+    // --- Create code for the end block
+    builder.SetInsertPoint(end_block);
+    builder.CreateRet(llvm::ConstantInt::get(builder.getInt32Ty(), 0));
+    
+
+
+    //dump module to check ir
     std::cout << "Module:\n";
     module->dump();
     std::cout << "\n";
-
-    return 0;
 }
 
 
@@ -235,5 +299,7 @@ int main() {
     mls->return_end = 0;    
     
     interpret(mls);
+
+    return 0;
 }
 
