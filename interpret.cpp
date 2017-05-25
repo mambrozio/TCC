@@ -265,7 +265,7 @@ void interpret(MiniLuaState *mls) {
 
     // --- Create code for the loop block
     builder.SetInsertPoint(loop_block);
-    
+
     //creating phi nodes
     //TODO try AddIncoming to PHINode
     llvm::PHINode *inst_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //inst = mls->proto->code[pc++]
@@ -285,27 +285,27 @@ void interpret(MiniLuaState *mls) {
 
     //adding pc_offset to pc
     llvm::Value *new_pc = builder.CreateAdd(pc, step_return);
-    
-    
+
+
     //TODO check if this is really necessary. The generated IR has the same load
     // apparently yes, because as llvm ir is ssa, the assignment in the entry block is unique
     // and references the initial value. Here we have to make another assignment to get
     // the updated value.
     // Maybe the CreateLoad(mls_GEP) is the only one that is unnecessary
     llvm::Value *proto_LD_loop = builder.CreateLoad(mls_GEP);
-    
+
     temp.clear();
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 10, true)));
     llvm::Value *code_GEP_loop = builder.CreateInBoundsGEP(proto_struct_type, proto_LD_loop, temp);
-    
+
     llvm::Value *code_LD_loop = builder.CreateLoad(code_GEP_loop);
-    
+
     //get the code[...]
     temp.clear();
     temp.push_back(new_pc);
     llvm::Value *code_GEP_offset_loop = builder.CreateInBoundsGEP(llvm::Type::getInt32PtrTy(context), code_LD_loop, temp);
-    
+
     llvm::Value *code_LD_offset_loop = builder.CreateLoad(code_GEP_offset_loop);
 
     //op = mls->proto->code && 0x3F
@@ -316,16 +316,49 @@ void interpret(MiniLuaState *mls) {
 
     //create the conditional break to end_block (if true) or to loop_block (if false)
     builder.CreateCondBr(is_return_2, end_block, loop_block);
-    
+
 
 
     // --- Create code for the end block
     builder.SetInsertPoint(end_block);
 
     //creating phi node
-    llvm::PHINode *phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //op
-    
+    llvm::PHINode *out_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //op
 
+    //create a
+    llvm::Value *shift_a = builder.CreateLShr(out_phi_node, llvm::APInt(32, POS_A, true));
+    llvm::Value *a = builder.CreateAnd(shift_a, llvm::APInt(32, 0xFF, true));
+
+    //create b
+    llvm::Value *shift_b = builder.CreateLShr(out_phi_node, llvm::APInt(32, POS_B, true));
+    llvm::Value *b = builder.CreateAnd(shift_b, llvm::APInt(32, 0x1FF, true));
+
+    //cast a
+    llvm::Value *a_cast = builder.CreateZExt(a, llvm::Type::getInt64Ty(context));
+
+    temp.clear();
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 2, true)));
+    llvm::Value *mls_return_begin_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+
+    //updating return_begin inside the MiniLuaState struct
+    llvm::Value *return_begin = builder.CreateStore(a_cast, mls_return_begin_GEP);
+
+    //creating return_end
+    llvm::Value *temp_b_0 = builder.CreateAdd(b, llvm::ConstantInt::get(context, llvm::APInt(32, -1, true)));
+
+    llvm::Value *temp_b_1 = builder.CreateAdd(temp_b_0, a);
+
+    //cast b
+    llvm::Value *b_cast = builder.CreateZExt(b, llvm::Type::getInt64Ty(context));
+
+    temp.clear();
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)));
+    llvm::Value *mls_return_end_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+
+    //updating return_begin inside the MiniLuaState struct
+    llvm::Value *return_end = builder.CreateStore(b_cast, mls_return_end_GEP);
 
     builder.CreateRetVoid();
 
@@ -339,11 +372,11 @@ void interpret(MiniLuaState *mls) {
 
 
 int main() {
-    
+
     MiniLuaState *mls = (MiniLuaState *)calloc(1, sizeof(MiniLuaState));
     mls->return_begin = 0;
     mls->return_end = 0;    
-    
+
     interpret(mls);
 
     return 0;
