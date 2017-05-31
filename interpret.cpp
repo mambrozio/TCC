@@ -92,10 +92,14 @@ typedef struct MiniLuaState {
 // --- End of type definitions
 
 
-extern "C" size_t step(MiniLuaState, Instruction, uint32_t, Value *);
+// extern "C" size_t step(MiniLuaState, Instruction, uint32_t, Value *);
 
 
-void interpret(MiniLuaState *mls) {
+// void interpret(MiniLuaState *mls) {
+// }
+
+
+int main() {
 
     //necessary LLVM initializations
     llvm::InitializeNativeTarget();
@@ -104,7 +108,7 @@ void interpret(MiniLuaState *mls) {
 
     //create the context and the main module
     llvm::LLVMContext context;
-    std::unique_ptr<llvm::Module> Owner(new llvm::Module("top", context));
+    std::unique_ptr<llvm::Module> Owner(new llvm::Module("interpret_module", context));
     llvm::Module *module = Owner.get();
 
 
@@ -187,10 +191,10 @@ void interpret(MiniLuaState *mls) {
 
     //define the interpret function
     auto functype = llvm::FunctionType::get(llvm::Type::getInt32Ty(context), p_miniluastate_struct_type, false);
-    auto mainfunc = llvm::Function::Create(functype, llvm::Function::ExternalLinkage, "interpret", module);
+    auto interpret_func = llvm::Function::Create(functype, llvm::Function::ExternalLinkage, "interpret", module);
 
     //get arguments
-    auto argiter = mainfunc->arg_begin();
+    auto argiter = interpret_func->arg_begin();
     llvm::Value *_mls = &*argiter++;
     //_mls->setName("arg");
 
@@ -206,13 +210,13 @@ void interpret(MiniLuaState *mls) {
 
     // --- Creating Blocks
     //create the entry block
-    auto entry_block = llvm::BasicBlock::Create(context, "entry", mainfunc);
+    auto entry_block = llvm::BasicBlock::Create(context, "entry", interpret_func);
 
     //create the loop block
-    auto loop_block = llvm::BasicBlock::Create(context, "loop", mainfunc);
+    auto loop_block = llvm::BasicBlock::Create(context, "loop", interpret_func);
 
     //create the end block
-    auto end_block = llvm::BasicBlock::Create(context, "end", mainfunc);
+    auto end_block = llvm::BasicBlock::Create(context, "end", interpret_func);
 
 
 
@@ -377,16 +381,6 @@ void interpret(MiniLuaState *mls) {
     std::cout << "Module:\n";
     module->dump();
     std::cout << "\n";
-}
-
-
-int main() {
-
-    MiniLuaState *mls = (MiniLuaState *)calloc(1, sizeof(MiniLuaState));
-    mls->return_begin = 0;
-    mls->return_end = 0;    
-
-    interpret(mls);
 
     return 0;
 }
