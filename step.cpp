@@ -21,8 +21,6 @@
 #include <llvm/Support/DynamicLibrary.h>
 //
 
-#define OP_RETURN 38
-
 #define SIZE_A          8
 #define SIZE_B          9
 #define SIZE_C          9
@@ -33,6 +31,75 @@
 #define POS_A           (POS_OP + SIZE_OP)
 #define POS_C           (POS_A + SIZE_A)
 #define POS_B           (POS_C + SIZE_C)
+
+
+typedef enum {
+/*----------------------------------------------------------------------
+name          code     args    description
+------------------------------------------------------------------------*/
+OP_MOVE       =  0, /*  A B     R(A) := R(B)                                    */
+OP_LOADK      =  1, /*  A Bx    R(A) := Kst(Bx)                                 */
+OP_LOADKX     =  2, /*  A       R(A) := Kst(extra arg)                          */
+OP_LOADBOOL   =  3, /*  A B C   R(A) := (Bool)B; if (C) pc++                    */
+OP_LOADNIL    =  4, /*  A B     R(A), R(A+1), ..., R(A+B) := nil                */
+OP_GETUPVAL   =  5, /*  A B     R(A) := UpValue[B]                              */
+
+OP_GETTABUP   =  6, /*  A B C   R(A) := UpValue[B][RK(C)]                       */
+OP_GETTABLE   =  7, /*  A B C   R(A) := R(B)[RK(C)]                             */
+
+OP_SETTABUP   =  8, /*  A B C   UpValue[A][RK(B)] := RK(C)                      */
+OP_SETUPVAL   =  9, /*  A B     UpValue[B] := R(A)                              */
+OP_SETTABLE   = 10, /*  A B C   R(A)[RK(B)] := RK(C)                            */
+
+OP_NEWTABLE   = 11, /*  A B C   R(A) := {} (size = B,C)                         */
+
+OP_SELF       = 12, /*  A B C   R(A+1) := R(B); R(A) := R(B)[RK(C)]   */
+
+OP_ADD        = 13, /*  A B C   R(A) := RK(B) + RK(C)                           */
+OP_SUB        = 14, /*  A B C   R(A) := RK(B) - RK(C)                           */
+OP_MUL        = 15, /*  A B C   R(A) := RK(B) * RK(C)                           */
+OP_MOD        = 16, /*  A B C   R(A) := RK(B) % RK(C)                           */
+OP_POW        = 17, /*  A B C   R(A) := RK(B) ^ RK(C)                           */
+OP_DIV        = 18, /*  A B C   R(A) := RK(B) / RK(C)                           */
+OP_IDIV       = 19, /*  A B C   R(A) := RK(B) // RK(C)                          */
+OP_BAND       = 20, /*  A B C   R(A) := RK(B) & RK(C)                           */
+OP_BOR        = 21, /*  A B C   R(A) := RK(B) | RK(C)                           */
+OP_BXOR       = 22, /*  A B C   R(A) := RK(B) ~ RK(C)                           */
+OP_SHL        = 23, /*  A B C   R(A) := RK(B) << RK(C)                          */
+OP_SHR        = 24, /*  A B C   R(A) := RK(B) >> RK(C)                          */
+OP_UNM        = 25, /*  A B     R(A) := -R(B)                                   */
+OP_BNOT       = 26, /*  A B     R(A) := ~R(B)                                   */
+OP_NOT        = 27, /*  A B     R(A) := not R(B)                                */
+OP_LEN        = 28, /*  A B     R(A) := length of R(B)                          */
+
+OP_CONCAT     = 29, /*  A B C   R(A) := R(B).. ... ..R(C)                       */
+
+OP_JMP        = 30, /*  A sBx   pc+=sBx; if (A) close all upvalues >= R(A - 1)  */
+OP_EQ         = 31, /*  A B C   if ((RK(B) == RK(C)) ~= A) then pc++            */
+OP_LT         = 32, /*  A B C   if ((RK(B) <  RK(C)) ~= A) then pc++            */
+OP_LE         = 33, /*  A B C   if ((RK(B) <= RK(C)) ~= A) then pc++            */
+
+OP_TEST       = 34, /*  A C     if not (R(A) <=> C) then pc++                   */
+OP_TESTSET    = 35, /*  A B C   if (R(B) <=> C) then R(A) := R(B) else pc++     */
+
+OP_CALL       = 36, /*  A B C   R(A), ... ,R(A+C-2) := R(A)(R(A+1), ... ,R(A+B-1)) */
+OP_TAILCALL   = 37, /*  A B C   return R(A)(R(A+1), ... ,R(A+B-1))              */
+OP_RETURN     = 38, /*  A B     return R(A), ... ,R(A+B-2)      (see note)      */
+
+OP_FORLOOP    = 39, /*  A sBx   R(A)+=R(A+2); if R(A) <?= R(A+1) then { pc+=sBx; R(A+3)=R(A) }*/
+OP_FORPREP    = 40, /*  A sBx   R(A)-=R(A+2); pc+=sBx                           */
+
+OP_TFORCALL   = 41, /*  A C     R(A+3), ... ,R(A+2+C) := R(A)(R(A+1), R(A+2));  */
+OP_TFORLOOP   = 42, /*  A sBx   if R(A+1) ~= nil then { R(A)=R(A+1); pc += sBx }*/
+
+OP_SETLIST    = 43, /*  A B C   R(A)[(C-1)*FPF+i] := R(A+i), 1 <= i <= B        */
+
+OP_CLOSURE    = 44, /*  A Bx    R(A) := closure(KPROTO[Bx])                     */
+
+OP_VARARG     = 45, /*  A B     R(A), R(A+1), ..., R(A+B-2) = vararg            */
+
+OP_EXTRAARG   = 46, /*  Ax      extra (larger) argument for previous opcode     */
+} OpCode;
 
 
 
@@ -202,15 +269,105 @@ int main() {
     auto entry_block = llvm::BasicBlock::Create(context, "entry", step_func);
 
 
-
     // --- Create code for the entry block
     builder.SetInsertPoint(entry_block);
 
+    //create op's blocks
+    auto op_move_block = llvm::BasicBlock::Create(context, "op_move", step_func);
+    auto op_loadk_block = llvm::BasicBlock::Create(context, "op_loadk", step_func);
+    auto op_add_block = llvm::BasicBlock::Create(context, "op_add", step_func);
+    auto op_sub_block = llvm::BasicBlock::Create(context, "op_sub", step_func);
+    auto op_mul_block = llvm::BasicBlock::Create(context, "op_mul", step_func);
+    auto op_div_block = llvm::BasicBlock::Create(context, "op_div", step_func);
+    auto op_mod_block = llvm::BasicBlock::Create(context, "op_mod", step_func);
+    auto op_idiv_block = llvm::BasicBlock::Create(context, "op_idiv", step_func);
+    auto op_pow_block = llvm::BasicBlock::Create(context, "op_pow", step_func);
+    auto op_unm_block = llvm::BasicBlock::Create(context, "op_unm", step_func);
+    auto op_not_block = llvm::BasicBlock::Create(context, "op_not", step_func);
+    auto op_jmp_block = llvm::BasicBlock::Create(context, "op_jmp", step_func);
+    auto op_eq_block = llvm::BasicBlock::Create(context, "op_eq", step_func);
+    auto op_lt_block = llvm::BasicBlock::Create(context, "op_lt", step_func);
+    auto op_le_block = llvm::BasicBlock::Create(context, "op_le", step_func);
+    auto op_forloop_block = llvm::BasicBlock::Create(context, "op_forloop", step_func);
+    auto op_forprep_block = llvm::BasicBlock::Create(context, "op_forprep", step_func);
+    auto default_block = llvm::BasicBlock::Create(context, "op_default", step_func);
 
 
+    llvm::SwitchInst *theSwitch = builder.CreateSwitch(_op, default_block, 18);
+
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_MOVE, true)), op_move_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_LOADK, true)), op_loadk_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_ADD, true)), op_add_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_SUB, true)), op_sub_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_MUL, true)), op_mul_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_DIV, true)), op_div_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_MOD, true)), op_mod_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_IDIV, true)), op_idiv_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_POW, true)), op_pow_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_UNM, true)), op_unm_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_NOT, true)), op_not_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_JMP, true)), op_jmp_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_EQ, true)), op_eq_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_LT, true)), op_lt_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_LE, true)), op_le_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_FORLOOP, true)), op_forloop_block);
+    theSwitch->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, OP_FORPREP, true)), op_forprep_block);
 
 
-    builder.CreateRetVoid();
+    //create OP_MOVE
+    builder.SetInsertPoint(op_move_block);
+
+    //create OP_LOADK
+    builder.SetInsertPoint(op_loadk_block);
+
+    //create OP_ADD
+    builder.SetInsertPoint(op_add_block);
+
+    //create OP_SUB
+    builder.SetInsertPoint(op_sub_block);
+
+    //create OP_MUL
+    builder.SetInsertPoint(op_mul_block);
+
+    //create OP_DIV
+    builder.SetInsertPoint(op_div_block);
+
+    //create OP_MOD
+    builder.SetInsertPoint(op_mod_block);
+
+    //create OP_IDIV
+    builder.SetInsertPoint(op_idiv_block);
+
+    //create OP_POW
+    builder.SetInsertPoint(op_pow_block);
+
+    //create OP_UNM
+    builder.SetInsertPoint(op_unm_block);
+
+    //create OP_NOT
+    builder.SetInsertPoint(op_not_block);
+
+    //create OP_JMP
+    builder.SetInsertPoint(op_jmp_block);
+
+    //create OP_EQ
+    builder.SetInsertPoint(op_eq_block);
+
+    //create OP_LT
+    builder.SetInsertPoint(op_lt_block);
+
+    //create OP_LE
+    builder.SetInsertPoint(op_le_block);
+
+    //create OP_FORLOOP
+    builder.SetInsertPoint(op_forloop_block);
+
+    //create OP_FORPREP
+    builder.SetInsertPoint(op_forprep_block);
+
+    //create DEFAULT
+    builder.SetInsertPoint(default_block);
+
 
 
 
