@@ -159,9 +159,40 @@ typedef struct MiniLuaState {
 // --- End of type definitions
 
 
+// Globals
+llvm::LLVMContext context;
+std::unique_ptr<llvm::Module> Owner(new llvm::Module("step_module", context));
+llvm::Module *module = Owner.get();
+llvm::IRBuilder<> builder(context);
 
-// size_t step(MiniLuaState *mls, Instruction inst, uint32_t op, Value *constants) {
-// }
+llvm::Function *step_func;
+llvm::Value *_mls;
+llvm::Value *_inst;
+llvm::Value *_op;
+llvm::Value *_constants;
+
+llvm::Function *llvm_memcpy;
+
+llvm::BasicBlock *entry_block;
+llvm::BasicBlock *end_block;
+llvm::BasicBlock *op_move_block;
+llvm::BasicBlock *op_loadk_block;
+llvm::BasicBlock *op_add_block;
+llvm::BasicBlock *op_sub_block;
+llvm::BasicBlock *op_mul_block;
+llvm::BasicBlock *op_div_block;
+llvm::BasicBlock *op_mod_block;
+llvm::BasicBlock *op_idiv_block;
+llvm::BasicBlock *op_pow_block;
+llvm::BasicBlock *op_unm_block;
+llvm::BasicBlock *op_not_block;
+llvm::BasicBlock *op_jmp_block;
+llvm::BasicBlock *op_eq_block;
+llvm::BasicBlock *op_lt_block;
+llvm::BasicBlock *op_le_block;
+llvm::BasicBlock *op_forloop_block;
+llvm::BasicBlock *op_forprep_block;
+llvm::BasicBlock *default_block;
 
 
 int main() {
@@ -172,9 +203,9 @@ int main() {
     llvm::InitializeNativeTargetAsmParser();
 
     //create the context and the main module
-    llvm::LLVMContext context;
-    std::unique_ptr<llvm::Module> Owner(new llvm::Module("step_module", context));
-    llvm::Module *module = Owner.get();
+//    llvm::LLVMContext context;
+//    std::unique_ptr<llvm::Module> Owner(new llvm::Module("step_module", context));
+//    llvm::Module *module = Owner.get();
 
 
     // --- Declarations
@@ -244,14 +275,14 @@ int main() {
     args.push_back(llvm::Type::getInt32Ty(context)); //op
     args.push_back(p_value_struct_type);             //constants
     llvm::FunctionType *step_type = llvm::FunctionType::get(llvm::Type::getInt64Ty(context), args, false);
-    auto step_func = llvm::Function::Create(step_type, llvm::Function::ExternalLinkage, "step", module);
+    step_func = llvm::Function::Create(step_type, llvm::Function::ExternalLinkage, "step", module);
 
     //get arguments
     auto argiter = step_func->arg_begin();
-    llvm::Value *_mls = &*argiter++;
-    llvm::Value *_inst = &*argiter++;
-    llvm::Value *_op = &*argiter++;
-    llvm::Value *_constants = &*argiter++;
+    _mls = &*argiter++;
+    _inst = &*argiter++;
+    _op = &*argiter++;
+    _constants = &*argiter++;
     //_mls->setName("arg");
 
     std::cout << "Arguments received by interpret function dump:\n";
@@ -260,38 +291,49 @@ int main() {
     std::cout << "\n";
 
 
+    //Creating llvm::memcpy function reference
+    llvm::SmallVector<llvm::Type *, 3> vec;
+    vec.push_back(llvm::Type::getInt8PtrTy(context));  /* i8 */
+    vec.push_back(llvm::Type::getInt8PtrTy(context));  /* i8 */
+    vec.push_back(llvm::Type::getInt64Ty(context));
+    llvm_memcpy = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::memcpy, vec);
+
+    llvm_memcpy->dump();
+
+
     //create irbuilder
-    llvm::IRBuilder<> builder(context);
+//    llvm::IRBuilder<> builder(context);
 
 
     // --- Creating Blocks
     //create the entry block
-    auto entry_block = llvm::BasicBlock::Create(context, "entry", step_func);
+    entry_block = llvm::BasicBlock::Create(context, "entry", step_func);
 
+    //create the end block
+    end_block = llvm::BasicBlock::Create(context, "end", step_func);
+
+    //create op's blocks
+    op_move_block = llvm::BasicBlock::Create(context, "op_move", step_func);
+    op_loadk_block = llvm::BasicBlock::Create(context, "op_loadk", step_func);
+    op_add_block = llvm::BasicBlock::Create(context, "op_add", step_func);
+    op_sub_block = llvm::BasicBlock::Create(context, "op_sub", step_func);
+    op_mul_block = llvm::BasicBlock::Create(context, "op_mul", step_func);
+    op_div_block = llvm::BasicBlock::Create(context, "op_div", step_func);
+    op_mod_block = llvm::BasicBlock::Create(context, "op_mod", step_func);
+    op_idiv_block = llvm::BasicBlock::Create(context, "op_idiv", step_func);
+    op_pow_block = llvm::BasicBlock::Create(context, "op_pow", step_func);
+    op_unm_block = llvm::BasicBlock::Create(context, "op_unm", step_func);
+    op_not_block = llvm::BasicBlock::Create(context, "op_not", step_func);
+    op_jmp_block = llvm::BasicBlock::Create(context, "op_jmp", step_func);
+    op_eq_block = llvm::BasicBlock::Create(context, "op_eq", step_func);
+    op_lt_block = llvm::BasicBlock::Create(context, "op_lt", step_func);
+    op_le_block = llvm::BasicBlock::Create(context, "op_le", step_func);
+    op_forloop_block = llvm::BasicBlock::Create(context, "op_forloop", step_func);
+    op_forprep_block = llvm::BasicBlock::Create(context, "op_forprep", step_func);
+    default_block = llvm::BasicBlock::Create(context, "op_default", step_func);
 
     // --- Create code for the entry block
     builder.SetInsertPoint(entry_block);
-
-    //create op's blocks
-    auto op_move_block = llvm::BasicBlock::Create(context, "op_move", step_func);
-    auto op_loadk_block = llvm::BasicBlock::Create(context, "op_loadk", step_func);
-    auto op_add_block = llvm::BasicBlock::Create(context, "op_add", step_func);
-    auto op_sub_block = llvm::BasicBlock::Create(context, "op_sub", step_func);
-    auto op_mul_block = llvm::BasicBlock::Create(context, "op_mul", step_func);
-    auto op_div_block = llvm::BasicBlock::Create(context, "op_div", step_func);
-    auto op_mod_block = llvm::BasicBlock::Create(context, "op_mod", step_func);
-    auto op_idiv_block = llvm::BasicBlock::Create(context, "op_idiv", step_func);
-    auto op_pow_block = llvm::BasicBlock::Create(context, "op_pow", step_func);
-    auto op_unm_block = llvm::BasicBlock::Create(context, "op_unm", step_func);
-    auto op_not_block = llvm::BasicBlock::Create(context, "op_not", step_func);
-    auto op_jmp_block = llvm::BasicBlock::Create(context, "op_jmp", step_func);
-    auto op_eq_block = llvm::BasicBlock::Create(context, "op_eq", step_func);
-    auto op_lt_block = llvm::BasicBlock::Create(context, "op_lt", step_func);
-    auto op_le_block = llvm::BasicBlock::Create(context, "op_le", step_func);
-    auto op_forloop_block = llvm::BasicBlock::Create(context, "op_forloop", step_func);
-    auto op_forprep_block = llvm::BasicBlock::Create(context, "op_forprep", step_func);
-    auto default_block = llvm::BasicBlock::Create(context, "op_default", step_func);
-
 
     llvm::SwitchInst *theSwitch = builder.CreateSwitch(_op, default_block, 18);
 
@@ -317,8 +359,42 @@ int main() {
     //create OP_MOVE
     builder.SetInsertPoint(op_move_block);
 
+    std::vector<llvm::Value *> temp;
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
+    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+
+    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
+
+    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_A, true)));
+    llvm::Value *a_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0xFF, true)));
+
+    temp.clear();
+    temp.push_back(a_inst);
+    llvm::Value *registers_ath = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+
+    temp_inst = NULL;
+    temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_B, true)));
+    llvm::Value *b_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x1FF, true)));
+
+    temp.clear();
+    temp.push_back(b_inst);
+    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+
+    llvm::Value *ath_bitcast = builder.CreateBitCast(registers_ath, llvm::Type::getInt8PtrTy(context));
+    llvm::Value *bth_bitcast = builder.CreateBitCast(registers_bth, llvm::Type::getInt8PtrTy(context));
+
+    temp.clear();
+    temp.push_back(ath_bitcast);
+    temp.push_back(bth_bitcast);
+    builder.CreateCall(llvm_memcpy, temp);
+
+    builder.CreateBr(end_block);
+
+
     //create OP_LOADK
     builder.SetInsertPoint(op_loadk_block);
+
 
     //create OP_ADD
     builder.SetInsertPoint(op_add_block);
@@ -367,6 +443,11 @@ int main() {
 
     //create DEFAULT
     builder.SetInsertPoint(default_block);
+
+    //create END label
+    builder.SetInsertPoint(end_block);
+
+    builder.CreateRet(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
 
 
 
