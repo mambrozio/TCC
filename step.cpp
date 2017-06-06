@@ -21,9 +21,11 @@
 #include <llvm/Support/DynamicLibrary.h>
 //
 
-#define SIZE_A          8
-#define SIZE_B          9
 #define SIZE_C          9
+#define SIZE_B          9
+#define SIZE_Bx         (SIZE_C + SIZE_B)
+#define SIZE_A          8
+#define SIZE_Ax         (SIZE_C + SIZE_B + SIZE_A)
 
 #define SIZE_OP         6
 
@@ -31,6 +33,17 @@
 #define POS_A           (POS_OP + SIZE_OP)
 #define POS_C           (POS_A + SIZE_A)
 #define POS_B           (POS_C + SIZE_C)
+#define POS_Bx          POS_C
+#define POS_Ax          POS_A
+
+
+#define MAXARG_A        ((1<<SIZE_A)-1)
+#define MAXARG_B        ((1<<SIZE_B)-1)
+#define MAXARG_C        ((1<<SIZE_C)-1)
+
+#define MAXARG_Ax       ((1<<SIZE_Ax)-1)
+#define MAXARG_Bx       ((1<<SIZE_Bx)-1)
+#define MAXARG_sBx      (MAXARG_Bx>>1)    // 'sBx' is signed
 
 
 typedef enum {
@@ -159,11 +172,31 @@ typedef struct MiniLuaState {
 // --- End of type definitions
 
 
+
+//Function definitions
+//TODO put this on a header file
+void create_op_move();
+void create_op_loadk();
+
+
+
 // Globals
 llvm::LLVMContext context;
 std::unique_ptr<llvm::Module> Owner(new llvm::Module("step_module", context));
 llvm::Module *module = Owner.get();
 llvm::IRBuilder<> builder(context);
+
+llvm::StructType *string_struct_type;
+llvm::PointerType *p_string_struct_type;
+
+llvm::StructType *value_struct_type;
+llvm::PointerType *p_value_struct_type;
+
+llvm::StructType *proto_struct_type;
+llvm::PointerType *p_proto_struct_type;
+
+llvm::StructType *miniluastate_struct_type;
+llvm::PointerType *p_miniluastate_struct_type;
 
 llvm::Function *step_func;
 llvm::Value *_mls;
@@ -212,8 +245,8 @@ int main() {
     //treating string_type enum as an int32
 
     //create String struct
-    llvm::StructType *string_struct_type = llvm::StructType::create(context, "String");
-    llvm::PointerType *p_string_struct_type = llvm::PointerType::get(string_struct_type, 0);
+    string_struct_type = llvm::StructType::create(context, "String");
+    p_string_struct_type = llvm::PointerType::get(string_struct_type, 0);
     std::vector<llvm::Type *> string_elements;
     string_elements.push_back(llvm::Type::getInt32Ty(context));   //typ
     string_elements.push_back(llvm::Type::getInt8PtrTy(context)); //*str
@@ -223,8 +256,8 @@ int main() {
     // std::cout << "\n";
 
     //create Value struct
-    llvm::StructType *value_struct_type = llvm::StructType::create(context, "Value");
-    llvm::PointerType *p_value_struct_type = llvm::PointerType::get(value_struct_type, 0);
+    value_struct_type = llvm::StructType::create(context, "Value");
+    p_value_struct_type = llvm::PointerType::get(value_struct_type, 0);
     std::vector<llvm::Type *> value_elements;
     value_elements.push_back(llvm::Type::getInt32Ty(context)); //typ
     value_elements.push_back(llvm::Type::getInt64Ty(context)); //u
@@ -234,8 +267,8 @@ int main() {
     // std::cout << "\n";
 
     //create Proto struct
-    llvm::StructType *proto_struct_type = llvm::StructType::create(context, "Proto");
-    llvm::PointerType *p_proto_struct_type = llvm::PointerType::get(proto_struct_type, 0);
+    proto_struct_type = llvm::StructType::create(context, "Proto");
+    p_proto_struct_type = llvm::PointerType::get(proto_struct_type, 0);
     std::vector<llvm::Type *> proto_elements;
     proto_elements.push_back(llvm::Type::getInt8Ty(context));     //numparams
     proto_elements.push_back(llvm::Type::getInt8Ty(context));     //is_vararg
@@ -255,8 +288,8 @@ int main() {
     // std::cout << "\n";
 
     //create MiniLuaState struct
-    llvm::StructType *miniluastate_struct_type = llvm::StructType::create(context, "MiniLuaState");
-    llvm::PointerType *p_miniluastate_struct_type = llvm::PointerType::get(miniluastate_struct_type, 0);
+    miniluastate_struct_type = llvm::StructType::create(context, "MiniLuaState");
+    p_miniluastate_struct_type = llvm::PointerType::get(miniluastate_struct_type, 0);
     std::vector<llvm::Type *> miniluastate_elements;
     miniluastate_elements.push_back(p_proto_struct_type);             //*proto
     miniluastate_elements.push_back(p_value_struct_type);             //*value
@@ -357,44 +390,10 @@ int main() {
 
 
     //create OP_MOVE
-    builder.SetInsertPoint(op_move_block);
-
-    std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
-
-    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_A, true)));
-    llvm::Value *a_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0xFF, true)));
-
-    temp.clear();
-    temp.push_back(a_inst);
-    llvm::Value *registers_ath = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
-
-    temp_inst = NULL;
-    temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_B, true)));
-    llvm::Value *b_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x1FF, true)));
-
-    temp.clear();
-    temp.push_back(b_inst);
-    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
-
-    llvm::Value *ath_bitcast = builder.CreateBitCast(registers_ath, llvm::Type::getInt8PtrTy(context));
-    llvm::Value *bth_bitcast = builder.CreateBitCast(registers_bth, llvm::Type::getInt8PtrTy(context));
-
-    temp.clear();
-    temp.push_back(ath_bitcast);
-    temp.push_back(bth_bitcast);
-    builder.CreateCall(llvm_memcpy, temp);
-
-    builder.CreateBr(end_block);
-
+    create_op_move();
 
     //create OP_LOADK
-    builder.SetInsertPoint(op_loadk_block);
-
+    create_op_loadk();
 
     //create OP_ADD
     builder.SetInsertPoint(op_add_block);
@@ -450,13 +449,85 @@ int main() {
     builder.CreateRet(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
 
 
-
-
     //dump module to check ir
     std::cout << "Module:\n";
     module->dump();
     std::cout << "\n";
 
     return 0;
+}
+
+
+void create_op_move() {
+    builder.SetInsertPoint(op_move_block);
+
+    std::vector<llvm::Value *> temp;
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
+    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+
+    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
+
+    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_A, true)));
+    llvm::Value *a_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0xFF, true)));
+
+    temp.clear();
+    temp.push_back(a_inst);
+    llvm::Value *registers_ath = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+
+    temp_inst = NULL;
+    temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_B, true)));
+    llvm::Value *b_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x1FF, true)));
+
+    temp.clear();
+    temp.push_back(b_inst);
+    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+
+    llvm::Value *ath_bitcast = builder.CreateBitCast(registers_ath, llvm::Type::getInt8PtrTy(context));
+    llvm::Value *bth_bitcast = builder.CreateBitCast(registers_bth, llvm::Type::getInt8PtrTy(context));
+
+    temp.clear();
+    temp.push_back(ath_bitcast);
+    temp.push_back(bth_bitcast);
+    builder.CreateCall(llvm_memcpy, temp);
+
+    builder.CreateBr(end_block);
+}
+
+
+void create_op_loadk() {
+    builder.SetInsertPoint(op_loadk_block);
+
+    std::vector<llvm::Value *> temp;
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
+    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+
+    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
+
+    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_A, true)));
+    llvm::Value *a_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0xFF, true)));
+
+    temp.clear();
+    temp.push_back(a_inst);
+    llvm::Value *registers_ath = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+
+    temp_inst = NULL;
+    temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_Bx, true)));
+    llvm::Value *b_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x3ffff, true)));
+
+    temp.clear();
+    temp.push_back(b_inst);
+    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, _constants, temp);
+
+    llvm::Value *ath_bitcast = builder.CreateBitCast(registers_ath, llvm::Type::getInt8PtrTy(context));
+    llvm::Value *bth_bitcast = builder.CreateBitCast(registers_bth, llvm::Type::getInt8PtrTy(context));
+
+    temp.clear();
+    temp.push_back(ath_bitcast);
+    temp.push_back(bth_bitcast);
+    builder.CreateCall(llvm_memcpy, temp);
+
+    builder.CreateBr(end_block);
 }
 
