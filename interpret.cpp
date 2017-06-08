@@ -10,7 +10,9 @@
 #include <memory>
 
 // printing tests
+#include <cstdio>
 #include <iostream>
+#include <sstream>
 //
 
 // LLVM includes
@@ -190,7 +192,7 @@ int main() {
 //    llvm::sys::DynamicLibrary::AddSymbol("step", reinterpret_cast<void*>(&step));
 
     //define the interpret function
-    auto functype = llvm::FunctionType::get(llvm::Type::getInt32Ty(context), p_miniluastate_struct_type, false);
+    auto functype = llvm::FunctionType::get(llvm::Type::getVoidTy(context), p_miniluastate_struct_type, false);
     auto interpret_func = llvm::Function::Create(functype, llvm::Function::ExternalLinkage, "interpret", module);
 
     //get arguments
@@ -198,10 +200,9 @@ int main() {
     llvm::Value *_mls = &*argiter++;
     //_mls->setName("arg");
 
-    std::cout << "Arguments received by interpret function dump:\n";
-    _mls->dump();
-    //std::cout << _mls;
-    std::cout << "\n";
+    // std::cout << "Arguments received by interpret function dump:\n";
+    // _mls->dump();
+    // std::cout << "\n";
 
 
     //create irbuilder
@@ -273,7 +274,7 @@ int main() {
     //creating phi nodes
     llvm::PHINode *inst_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //inst = mls->proto->code[pc++]
     llvm::PHINode *op_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //op (inst & 0x3f)
-    llvm::PHINode *pc_phi_node = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2);
+    llvm::PHINode *pc_phi_node = builder.CreatePHI(llvm::Type::getInt64Ty(context), 2);
 
     //increment pc
     llvm::Value *pc = builder.CreateAdd(pc_phi_node, llvm::ConstantInt::get(context, llvm::APInt(64, 1, true)));
@@ -288,6 +289,7 @@ int main() {
 
     //adding pc_offset to pc
     llvm::Value *new_pc = builder.CreateAdd(pc, step_return);
+    new_pc->mutateType(llvm::Type::getInt64Ty(context));
 
 
     //TODO check if this is really necessary. The generated IR has the same load
@@ -363,7 +365,7 @@ int main() {
     llvm::Value *temp_b_1 = builder.CreateAdd(temp_b_0, a);
 
     //cast b
-    llvm::Value *b_cast = builder.CreateZExt(b, llvm::Type::getInt64Ty(context));
+    llvm::Value *b_cast = builder.CreateZExt(temp_b_1, llvm::Type::getInt64Ty(context));
 
     temp.clear();
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
@@ -378,9 +380,8 @@ int main() {
 
 
     //dump module to check ir
-    std::cout << "Module:\n";
+    freopen("interpret.ll", "w", stderr);
     module->dump();
-    std::cout << "\n";
 
     return 0;
 }
