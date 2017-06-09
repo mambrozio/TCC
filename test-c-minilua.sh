@@ -1,12 +1,13 @@
 #!/bin/bash
 set -e
-if [ "$1" == "c" ] ; then
+if [ "$2" == "c" ] ; then
     echo "Compiling c-minilua..."
     make clean > /dev/null 2>&1
     make > /dev/null 2>&1
     echo ""
 fi
 
+executable=$1
 n=0
 nerrors=0
 errorFilenames=()
@@ -16,7 +17,7 @@ for filename in ./examples/*.byte; do
        
         n=$(($n + 1))
         
-        ./c-minilua "$filename" > /dev/null 2>&1    
+        ./$executable "$filename" > /dev/null 2>&1    
         status=$?
         
         if [ $status -ne 0 ]; then
