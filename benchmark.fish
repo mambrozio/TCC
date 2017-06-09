@@ -25,6 +25,7 @@ function bench
 end
 
 bench ./c-minilua $inputbyte
+bench ./hybrid $inputbyte
 bench lua           ./lua-minilua.lua $inputbyte
 bench luajit -j off ./lua-minilua.lua $inputlua
 bench luajit -O3    ./lua-minilua.lua $inputlua
