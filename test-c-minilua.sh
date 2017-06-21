@@ -17,10 +17,13 @@ for filename in ./examples/*.byte; do
        
         n=$(($n + 1))
         
-        ./$executable "$filename" > /dev/null 2>&1    
-        status=$?
+	set -e
+        ./$executable "$filename" || true #> /dev/null 2>&1
+        ret=$?
+	echo $ret
+	set +e
         
-        if [ $status -ne 0 ]; then
+        if [ $ret -ne 0 ]; then
             #echo "Error while running \"$filename\"" >&2
             echo -e "\e[91mError:\t\"$filename\"\e[0m" >&2
             errorFilenames+=("$filename")

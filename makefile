@@ -1,6 +1,9 @@
 CC:=gcc
 CFLAGS:=--std=c11 --pedantic -Wall -Wextra -lm -O3
 
+LLC:=llc
+LLCFLAGS:=-O3
+
 SOURCES := $(wildcard examples/*.lua)
 BYTECODES := $(patsubst %.lua,%.byte,$(SOURCES))
 
@@ -19,12 +22,16 @@ c-minilua: c-minilua.c
 hybrid: hybrid.c
 	clang++ -o interpret interpret.cpp `llvm-config --cxxflags --ldflags --libs all --system-libs`
 	./interpret
-	llc interpret.ll
-	gcc -c interpret.s
-	$(CC) $(CFLAGS) $< interpret.o -o $@
+	clang++ -o step step.cpp `llvm-config --cxxflags --ldflags --libs all --system-libs`
+	./step
+	$(LLC) $(LLCFLAGS) interpret.ll
+	$(LLC) $(LLCFLAGS) step.ll
+	gcc -c interpret.s -O3
+	gcc -c step.s -O3
+	$(CC) $(CFLAGS) $< interpret.o step.o -o $@
 	
 clean:
 	rm -rf $(GENERATED)
 
 clean-hybrid:
-	rm -rf interpret interpret.ll interpret.s interpret.o hybrid
+	rm -rf interpret step interpret.ll step.ll interpret.s step.s interpret.o step.o hybrid
