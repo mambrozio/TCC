@@ -10,7 +10,9 @@
 #include <memory>
 
 // printing tests
+#include <cstdio>
 #include <iostream>
+#include <sstream>
 //
 
 // LLVM includes
@@ -175,8 +177,23 @@ typedef struct MiniLuaState {
 
 //Function definitions
 //TODO put this on a header file
-void create_op_move();
-void create_op_loadk();
+llvm::Value * create_op_move();
+llvm::Value * create_op_loadk();
+void create_op_add_block();
+void create_op_sub_block();
+void create_op_mul_block();
+void create_op_div_block();
+void create_op_mod_block();
+void create_op_idiv_block();
+void create_op_pow_block();
+void create_op_unm_block();
+void create_op_not_block();
+void create_op_jmp_block();
+void create_op_eq_block();
+void create_op_lt_block();
+void create_op_le_block();
+void create_op_forloop_block();
+void create_op_forprep_block();
 
 
 
@@ -205,6 +222,12 @@ llvm::Value *_op;
 llvm::Value *_constants;
 
 llvm::Function *llvm_memcpy;
+
+//
+llvm::Function *step_in_C;
+//
+
+llvm::PHINode *return_phi_node;
 
 llvm::BasicBlock *entry_block;
 llvm::BasicBlock *end_block;
@@ -318,10 +341,21 @@ int main() {
     _constants = &*argiter++;
     //_mls->setName("arg");
 
-    std::cout << "Arguments received by interpret function dump:\n";
-    _mls->dump();
+    // std::cout << "Arguments received by interpret function dump:\n";
+    // _mls->dump();
     //std::cout << _mls;
-    std::cout << "\n";
+    // std::cout << "\n";
+
+
+    //
+    step_in_C = llvm::Function::Create(step_type, llvm::Function::ExternalLinkage, "step_in_C", module);
+    std::vector<llvm::Value *> step_args;
+    step_args.push_back(_mls);
+    step_args.push_back(_inst);
+    step_args.push_back(_op);
+    step_args.push_back(_constants);
+    //
+
 
 
     //Creating llvm::memcpy function reference
@@ -330,9 +364,6 @@ int main() {
     vec.push_back(llvm::Type::getInt8PtrTy(context));  /* i8 */
     vec.push_back(llvm::Type::getInt64Ty(context));
     llvm_memcpy = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::memcpy, vec);
-
-    llvm_memcpy->dump();
-
 
     //create irbuilder
 //    llvm::IRBuilder<> builder(context);
@@ -390,77 +421,135 @@ int main() {
 
 
     //create OP_MOVE
-    create_op_move();
+    llvm::Value *return_from_op_move = create_op_move();
 
     //create OP_LOADK
-    create_op_loadk();
+    llvm::Value *return_from_op_loadk = create_op_loadk();
 
     //create OP_ADD
     builder.SetInsertPoint(op_add_block);
+    //call step_in_C
+    llvm::Value *return_from_op_add = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create OP_SUB
     builder.SetInsertPoint(op_sub_block);
+    llvm::Value *return_from_op_sub = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create OP_MUL
     builder.SetInsertPoint(op_mul_block);
+    llvm::Value *return_from_op_mul = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create OP_DIV
     builder.SetInsertPoint(op_div_block);
+    llvm::Value *return_from_op_div = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create OP_MOD
     builder.SetInsertPoint(op_mod_block);
+    llvm::Value *return_from_op_mod = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create OP_IDIV
     builder.SetInsertPoint(op_idiv_block);
+    llvm::Value *return_from_op_idiv = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create OP_POW
     builder.SetInsertPoint(op_pow_block);
+    llvm::Value *return_from_op_pow = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create OP_UNM
     builder.SetInsertPoint(op_unm_block);
+    llvm::Value *return_from_op_unm = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create OP_NOT
     builder.SetInsertPoint(op_not_block);
+    llvm::Value *return_from_op_not = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create OP_JMP
     builder.SetInsertPoint(op_jmp_block);
+    llvm::Value *return_from_op_jmp = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create OP_EQ
     builder.SetInsertPoint(op_eq_block);
+    llvm::Value *return_from_op_eq = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create OP_LT
     builder.SetInsertPoint(op_lt_block);
+    llvm::Value *return_from_op_lt = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create OP_LE
     builder.SetInsertPoint(op_le_block);
+    llvm::Value *return_from_op_le = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create OP_FORLOOP
     builder.SetInsertPoint(op_forloop_block);
+    llvm::Value *return_from_op_forloop = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create OP_FORPREP
     builder.SetInsertPoint(op_forprep_block);
+    llvm::Value *return_from_op_forprep = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create DEFAULT
     builder.SetInsertPoint(default_block);
+    llvm::Value *return_from_op_default = builder.CreateCall(step_in_C, step_args);
+    builder.CreateBr(end_block);
 
     //create END label
     builder.SetInsertPoint(end_block);
-
-    builder.CreateRet(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    //create return_phi_node
+    return_phi_node = builder.CreatePHI(llvm::Type::getInt64Ty(context), 18);
+    return_phi_node->addIncoming(return_from_op_move, op_move_block);
+    return_phi_node->addIncoming(return_from_op_loadk, op_loadk_block);
+    return_phi_node->addIncoming(return_from_op_add, op_add_block);
+    return_phi_node->addIncoming(return_from_op_sub, op_sub_block);
+    return_phi_node->addIncoming(return_from_op_mul, op_mul_block);
+    return_phi_node->addIncoming(return_from_op_div, op_div_block);
+    return_phi_node->addIncoming(return_from_op_mod, op_mod_block);
+    return_phi_node->addIncoming(return_from_op_idiv, op_idiv_block);
+    return_phi_node->addIncoming(return_from_op_pow, op_pow_block);
+    return_phi_node->addIncoming(return_from_op_unm, op_unm_block);
+    return_phi_node->addIncoming(return_from_op_not, op_not_block);
+    return_phi_node->addIncoming(return_from_op_jmp, op_jmp_block);
+    return_phi_node->addIncoming(return_from_op_eq, op_eq_block);
+    return_phi_node->addIncoming(return_from_op_lt, op_lt_block);
+    return_phi_node->addIncoming(return_from_op_le, op_le_block);
+    return_phi_node->addIncoming(return_from_op_forloop, op_forloop_block);
+    return_phi_node->addIncoming(return_from_op_forprep, op_forprep_block);
+    return_phi_node->addIncoming(return_from_op_default, default_block);
+    builder.CreateRet(return_phi_node);
 
 
     //dump module to check ir
-    std::cout << "Module:\n";
+    // std::cout << "Module:\n";
+    // module->dump();
+    // std::cout << "\n";
+
+    //dump module to check ir
+    freopen("step.ll", "w", stderr);
     module->dump();
-    std::cout << "\n";
 
     return 0;
 }
 
 
-void create_op_move() {
+llvm::Value* create_op_move() {
     builder.SetInsertPoint(op_move_block);
 
+
+    /* R(A()) */
     std::vector<llvm::Value *> temp;
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
@@ -473,15 +562,16 @@ void create_op_move() {
 
     temp.clear();
     temp.push_back(a_inst);
-    llvm::Value *registers_ath = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *registers_ath = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp); /* Value *a */
 
+    /* R(B()) */
     temp_inst = NULL;
     temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_B, true)));
     llvm::Value *b_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x1FF, true)));
 
     temp.clear();
     temp.push_back(b_inst);
-    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp); /* Value *b */
 
     llvm::Value *ath_bitcast = builder.CreateBitCast(registers_ath, llvm::Type::getInt8PtrTy(context));
     llvm::Value *bth_bitcast = builder.CreateBitCast(registers_bth, llvm::Type::getInt8PtrTy(context));
@@ -489,15 +579,21 @@ void create_op_move() {
     temp.clear();
     temp.push_back(ath_bitcast);
     temp.push_back(bth_bitcast);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 16, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 8, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(1, 0, true)));
     builder.CreateCall(llvm_memcpy, temp);
 
     builder.CreateBr(end_block);
+
+    return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
 }
 
 
-void create_op_loadk() {
+llvm::Value* create_op_loadk() {
     builder.SetInsertPoint(op_loadk_block);
 
+    /* R(A()) */
     std::vector<llvm::Value *> temp;
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
@@ -510,15 +606,16 @@ void create_op_loadk() {
 
     temp.clear();
     temp.push_back(a_inst);
-    llvm::Value *registers_ath = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *registers_ath = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp); /* Value *a */
 
+    /* K(Bx()) */
     temp_inst = NULL;
     temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_Bx, true)));
     llvm::Value *b_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x3ffff, true)));
 
     temp.clear();
     temp.push_back(b_inst);
-    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, _constants, temp);
+    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, _constants, temp); /* Value *b */
 
     llvm::Value *ath_bitcast = builder.CreateBitCast(registers_ath, llvm::Type::getInt8PtrTy(context));
     llvm::Value *bth_bitcast = builder.CreateBitCast(registers_bth, llvm::Type::getInt8PtrTy(context));
@@ -526,8 +623,73 @@ void create_op_loadk() {
     temp.clear();
     temp.push_back(ath_bitcast);
     temp.push_back(bth_bitcast);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 16, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 8, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(1, 0, true)));
     builder.CreateCall(llvm_memcpy, temp);
 
     builder.CreateBr(end_block);
+
+    return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
+}
+
+void create_op_add_block() {
+
+}
+
+void create_op_sub_block() {
+
+}
+
+void create_op_mul_block() {
+
+}
+
+void create_op_div_block() {
+
+}
+
+void create_op_mod_block() {
+
+}
+
+void create_op_idiv_block() {
+
+}
+
+void create_op_pow_block() {
+
+}
+
+void create_op_unm_block() {
+
+}
+
+void create_op_not_block() {
+
+}
+
+void create_op_jmp_block() {
+
+}
+
+void create_op_eq_block() {
+
+}
+
+void create_op_lt_block() {
+
+}
+
+void create_op_le_block() {
+
+}
+
+void create_op_forloop_block() {
+
+}
+
+void create_op_forprep_block() {
+
 }
 

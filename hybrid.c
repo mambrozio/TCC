@@ -885,7 +885,7 @@ void vm_ADD(Value *out, Value *v1, Value *v2)
             set_float(out, n1 + n2);
         }
     } else {
-        error("type error");
+        error("type error - vm_ADD");
         assert(0);
     } 
 }
@@ -904,7 +904,7 @@ void vm_SUB(Value *out, Value *v1, Value *v2)
             set_float(out, n1 - n2);
         }
     } else {
-        error("type error");
+        error("type error - vm_SUB");
         assert(0);
     } 
 }
@@ -924,6 +924,7 @@ void vm_MUL(Value *out, Value *v1, Value *v2)
         }
     } else {
         error("type error");
+        error("vm_MUL");
         assert(0);
     } 
 }
@@ -938,7 +939,7 @@ void vm_DIV(Value *out, Value *v1, Value *v2)
         lua_float n2 = castToFloat(v2);
         set_float(out, n1 / n2);
     } else {
-        error("type error");
+        error("type error - vm_DIV");
         assert(0);
     }
 }
@@ -957,7 +958,7 @@ void vm_MOD(Value *out, Value *v1, Value *v2)
             set_float(out, fmod(n1, n2));
         }
     } else {
-        error("type error");
+        error("type error - vm_MOD");
         assert(0);
     } 
 
@@ -978,7 +979,7 @@ void vm_IDIV(Value *out, Value *v1, Value *v2)
             set_float(out, floor(n1/n2));
         }
     } else {
-        error("type error");
+        error("type error - vm_IDIV");
         assert(0);
     } 
 }
@@ -993,7 +994,7 @@ void vm_POW(Value *out, Value *v1, Value *v2)
         lua_float n2 = castToFloat(v2);
         set_float(out, pow(n1, n2));
     } else {
-        error("type error");
+        error("type error - vm_POW");
         assert(0);
     }
 }
@@ -1006,7 +1007,7 @@ void vm_UNM(Value *out, Value *v1)
     } else if (v1->typ == LUA_TNUMFLT) {
         set_float(out, - v1->u.n);
     } else {
-        error("type error");
+        error("type error - vm_UNM");
         assert(0);
     }
 }
@@ -1064,7 +1065,7 @@ uint32_t vm_LT(Value *v1, Value *v2)
       return (n1 < n2);
     }
   } else {
-    error("type error");
+    error("type error - vm_LT");
     assert(0);
   } 
 }
@@ -1082,7 +1083,7 @@ uint32_t vm_LE(Value *v1, Value *v2)
       return (n1 <= n2);
     }
   } else {
-    error("type error");
+    error("type error - vm_LE");
     assert(0);
   } 
 }
@@ -1104,9 +1105,7 @@ typedef struct MiniLuaState {
 #define RK(n) (ISK(n) ? K(INDEXK(n)) : R(n))
 
 //
-size_t step(MiniLuaState *mls, Instruction inst, uint32_t op, Value *constants);
-
-size_t step(MiniLuaState *mls, Instruction inst, uint32_t op, Value *constants) {
+size_t step_in_C(MiniLuaState *mls, Instruction inst, uint32_t op, Value *constants) {
     size_t pc_offset = 0;
     switch (op) {
         case OP_MOVE: {
