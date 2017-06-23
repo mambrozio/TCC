@@ -545,40 +545,67 @@ int main() {
 }
 
 
+/* R(A()) */
+llvm::Value* create_ra(llvm::Value *registers_LD) {
+    /* R(A()) */
+    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_A, true)));
+    llvm::Value *a_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0xFF, true)));
+
+    std::vector<llvm::Value *> temp;
+    temp.push_back(a_inst);
+    llvm::Value *registers_ath = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp); /* Value *a */
+    llvm::Value *ath_bitcast = builder.CreateBitCast(registers_ath, llvm::Type::getInt8PtrTy(context));
+
+    return ath_bitcast;
+}
+
+/* R(B()) */
+llvm::Value* create_rb(llvm::Value *registers_LD) {
+    /* R(B()) */
+    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_B, true)));
+    llvm::Value *b_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x1FF, true)));
+
+    std::vector<llvm::Value *> temp;
+    temp.push_back(b_inst);
+    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp); /* Value *b */
+    llvm::Value *bth_bitcast = builder.CreateBitCast(registers_bth, llvm::Type::getInt8PtrTy(context));
+
+    return bth_bitcast;
+}
+
+/* K(Bx()) */
+llvm::Value* create_krbx() {
+    /* K(Bx()) */
+    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_Bx, true)));
+    llvm::Value *b_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x3ffff, true)));
+
+    std::vector<llvm::Value *> temp;
+    temp.push_back(b_inst);
+    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, _constants, temp); /* Value *b */
+
+    llvm::Value *bth_bitcast = builder.CreateBitCast(registers_bth, llvm::Type::getInt8PtrTy(context));
+
+    return bth_bitcast;
+}
+
+
+
+/* OPCODES */
 llvm::Value* create_op_move() {
     builder.SetInsertPoint(op_move_block);
 
-
-    /* R(A()) */
     std::vector<llvm::Value *> temp;
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
     llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-
     llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_A, true)));
-    llvm::Value *a_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0xFF, true)));
+    llvm::Value *ra = create_ra(registers_LD);
+    llvm::Value *rb = create_rb(registers_LD);
 
     temp.clear();
-    temp.push_back(a_inst);
-    llvm::Value *registers_ath = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp); /* Value *a */
-
-    /* R(B()) */
-    temp_inst = NULL;
-    temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_B, true)));
-    llvm::Value *b_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x1FF, true)));
-
-    temp.clear();
-    temp.push_back(b_inst);
-    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp); /* Value *b */
-
-    llvm::Value *ath_bitcast = builder.CreateBitCast(registers_ath, llvm::Type::getInt8PtrTy(context));
-    llvm::Value *bth_bitcast = builder.CreateBitCast(registers_bth, llvm::Type::getInt8PtrTy(context));
-
-    temp.clear();
-    temp.push_back(ath_bitcast);
-    temp.push_back(bth_bitcast);
+    temp.push_back(ra);
+    temp.push_back(rb);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 16, true)));
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 8, true)));
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(1, 0, true)));
@@ -593,36 +620,18 @@ llvm::Value* create_op_move() {
 llvm::Value* create_op_loadk() {
     builder.SetInsertPoint(op_loadk_block);
 
-    /* R(A()) */
     std::vector<llvm::Value *> temp;
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
     llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-
     llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_A, true)));
-    llvm::Value *a_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0xFF, true)));
+    llvm::Value *ra = create_ra(registers_LD);
+    llvm::Value *rb = create_krbx();
 
     temp.clear();
-    temp.push_back(a_inst);
-    llvm::Value *registers_ath = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp); /* Value *a */
-
-    /* K(Bx()) */
-    temp_inst = NULL;
-    temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_Bx, true)));
-    llvm::Value *b_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x3ffff, true)));
-
-    temp.clear();
-    temp.push_back(b_inst);
-    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, _constants, temp); /* Value *b */
-
-    llvm::Value *ath_bitcast = builder.CreateBitCast(registers_ath, llvm::Type::getInt8PtrTy(context));
-    llvm::Value *bth_bitcast = builder.CreateBitCast(registers_bth, llvm::Type::getInt8PtrTy(context));
-
-    temp.clear();
-    temp.push_back(ath_bitcast);
-    temp.push_back(bth_bitcast);
+    temp.push_back(ra);
+    temp.push_back(rb);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 16, true)));
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 8, true)));
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(1, 0, true)));
