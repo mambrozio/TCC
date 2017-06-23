@@ -19,7 +19,7 @@ examples/%.byte: examples/%.lua
 c-minilua: c-minilua.c
 	$(CC) $(CFLAGS) $< -o $@
 
-hybrid: hybrid.c
+hybrid: hybrid.c interpret.cpp step.cpp
 	clang++ -o interpret interpret.cpp `llvm-config --cxxflags --ldflags --libs all --system-libs`
 	./interpret
 	clang++ -o step step.cpp `llvm-config --cxxflags --ldflags --libs all --system-libs`

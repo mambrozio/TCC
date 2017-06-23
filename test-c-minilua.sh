@@ -20,7 +20,6 @@ for filename in ./examples/*.byte; do
 	set -e
         ./$executable "$filename" || true #> /dev/null 2>&1
         ret=$?
-	echo $ret
 	set +e
         
         if [ $ret -ne 0 ]; then
