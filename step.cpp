@@ -422,9 +422,11 @@ int main() {
 
     //create OP_MOVE
     llvm::Value *return_from_op_move = create_op_move();
+    builder.CreateBr(end_block);
 
     //create OP_LOADK
     llvm::Value *return_from_op_loadk = create_op_loadk();
+    builder.CreateBr(end_block);
 
     //create OP_ADD
     builder.SetInsertPoint(op_add_block);
@@ -545,11 +547,56 @@ int main() {
 }
 
 
+llvm::Value* create_A() {
+    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_A, true)));
+    llvm::Value *a_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0xFF, true)));
+
+    return a_inst;
+}
+
+llvm::Value* create_B() {
+    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_B, true)));
+    llvm::Value *b_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x1FF, true)));
+
+    return b_inst;
+}
+
+llvm::Value* create_C() {
+    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_C, true)));
+    llvm::Value *c_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x1FF, true)));
+
+    return c_inst;
+}
+
+llvm::Value* create_bx() {
+    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_Bx, true)));
+    llvm::Value *bx_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x3ffff, true)));
+
+    return bx_inst;
+}
+
+
+// llvm::Value* create_isk() {
+
+// }
+
+// llvm::Value* create_rk() {
+
+// }
+
+// llvm::Value* create_k() {
+
+// }
+
+// llvm::Value* create_indexk() {
+
+// }
+
+
 /* R(A()) */
 llvm::Value* create_ra(llvm::Value *registers_LD) {
     /* R(A()) */
-    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_A, true)));
-    llvm::Value *a_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0xFF, true)));
+    llvm::Value *a_inst = create_A();
 
     std::vector<llvm::Value *> temp;
     temp.push_back(a_inst);
@@ -562,8 +609,7 @@ llvm::Value* create_ra(llvm::Value *registers_LD) {
 /* R(B()) */
 llvm::Value* create_rb(llvm::Value *registers_LD) {
     /* R(B()) */
-    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_B, true)));
-    llvm::Value *b_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x1FF, true)));
+    llvm::Value *b_inst = create_B();
 
     std::vector<llvm::Value *> temp;
     temp.push_back(b_inst);
@@ -576,13 +622,11 @@ llvm::Value* create_rb(llvm::Value *registers_LD) {
 /* K(Bx()) */
 llvm::Value* create_krbx() {
     /* K(Bx()) */
-    llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_Bx, true)));
-    llvm::Value *b_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0x3ffff, true)));
+    llvm::Value *bx_inst = create_bx();
 
     std::vector<llvm::Value *> temp;
-    temp.push_back(b_inst);
+    temp.push_back(bx_inst);
     llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, _constants, temp); /* Value *b */
-
     llvm::Value *bth_bitcast = builder.CreateBitCast(registers_bth, llvm::Type::getInt8PtrTy(context));
 
     return bth_bitcast;
@@ -611,8 +655,6 @@ llvm::Value* create_op_move() {
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(1, 0, true)));
     builder.CreateCall(llvm_memcpy, temp);
 
-    builder.CreateBr(end_block);
-
     return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
 }
 
@@ -636,8 +678,6 @@ llvm::Value* create_op_loadk() {
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 8, true)));
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(1, 0, true)));
     builder.CreateCall(llvm_memcpy, temp);
-
-    builder.CreateBr(end_block);
 
     return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
 }
