@@ -871,7 +871,7 @@ int isTruthy(Value *v) {
 }
 
 
-static
+
 void vm_ADD(Value *out, Value *v1, Value *v2)
 {
     if (isNumerical(v1) && isNumerical(v2)) {
