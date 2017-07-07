@@ -47,6 +47,9 @@
 #define MAXARG_Bx       ((1<<SIZE_Bx)-1)
 #define MAXARG_sBx      (MAXARG_Bx>>1)    // 'sBx' is signed
 
+/* this bit 1 means constant (0 means register) */
+#define BITRK           (1 << (SIZE_B - 1))
+
 
 typedef enum {
 /*----------------------------------------------------------------------
@@ -179,7 +182,7 @@ typedef struct MiniLuaState {
 //TODO put this on a header file
 llvm::Value * create_op_move();
 llvm::Value * create_op_loadk();
-void create_op_add_block();
+llvm::Value *  create_op_add();
 void create_op_sub_block();
 void create_op_mul_block();
 void create_op_div_block();
@@ -220,6 +223,8 @@ llvm::Value *_mls;
 llvm::Value *_inst;
 llvm::Value *_op;
 llvm::Value *_constants;
+
+llvm::Function *vm_add;
 
 llvm::Function *llvm_memcpy;
 
@@ -354,6 +359,14 @@ int main() {
     step_args.push_back(_inst);
     step_args.push_back(_op);
     step_args.push_back(_constants);
+
+
+    std::vector<llvm::Type *> vm_add_args;
+    vm_add_args.push_back(p_value_struct_type);
+    vm_add_args.push_back(p_value_struct_type);
+    vm_add_args.push_back(p_value_struct_type);
+    llvm::FunctionType *vm_add_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), vm_add_args, false);
+    vm_add = llvm::Function::Create(vm_add_type, llvm::Function::ExternalLinkage, "vm_ADD", module);
     //
 
 
@@ -431,7 +444,8 @@ int main() {
     //create OP_ADD
     builder.SetInsertPoint(op_add_block);
     //call step_in_C
-    llvm::Value *return_from_op_add = builder.CreateCall(step_in_C, step_args);
+    // llvm::Value *return_from_op_add = builder.CreateCall(step_in_C, step_args);
+    llvm::Value *return_from_op_add = create_op_add();
     builder.CreateBr(end_block);
 
     //create OP_SUB
@@ -547,6 +561,10 @@ int main() {
 }
 
 
+llvm::Value* is_numerical(llvm::Value *v) {
+
+}
+
 llvm::Value* create_A() {
     llvm::Value *temp_inst = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, POS_A, true)));
     llvm::Value *a_inst = builder.CreateAnd(temp_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 0xFF, true)));
@@ -576,21 +594,39 @@ llvm::Value* create_bx() {
 }
 
 
-// llvm::Value* create_isk() {
+llvm::Value* create_isk(llvm::Value *n) {
+    return builder.CreateAnd(n, llvm::ConstantInt::get(context, llvm::APInt(32, BITRK, true)));
+}
 
-// }
+llvm::Value* create_indexk(llvm::Value * x_inst) {
+    return builder.CreateAnd(x_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 255, false)));
+}
 
-// llvm::Value* create_rk() {
+llvm::Value* create_rk(llvm::Value * x_inst, llvm::Value *registers_LD) {
+    llvm::Value *isk = create_isk(x_inst);
 
-// }
+    llvm::Value *cmp_eq = builder.CreateICmpEQ(isk, llvm::ConstantInt::get(context, llvm::APInt(32, 0, true))); // isk == 0
+
+    llvm::Value *indexk = create_indexk(x_inst);
+
+    llvm::Value *select_arg = builder.CreateSelect(cmp_eq, x_inst, indexk);
+
+    llvm::Value *select_ld = builder.CreateSelect(cmp_eq, registers_LD, _constants);
+
+    std::vector<llvm::Value *> temp;
+    temp.push_back(select_arg);
+    return builder.CreateInBoundsGEP(value_struct_type, select_ld,temp);
+}
 
 // llvm::Value* create_k() {
 
 // }
 
-// llvm::Value* create_indexk() {
+llvm::Value * create_bitcast(llvm::Value *x) {
+    llvm::Value *xth_bitcast = builder.CreateBitCast(x, llvm::Type::getInt8PtrTy(context));
 
-// }
+    return xth_bitcast;
+}
 
 
 /* R(A()) */
@@ -601,9 +637,8 @@ llvm::Value* create_ra(llvm::Value *registers_LD) {
     std::vector<llvm::Value *> temp;
     temp.push_back(a_inst);
     llvm::Value *registers_ath = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp); /* Value *a */
-    llvm::Value *ath_bitcast = builder.CreateBitCast(registers_ath, llvm::Type::getInt8PtrTy(context));
 
-    return ath_bitcast;
+    return registers_ath;
 }
 
 /* R(B()) */
@@ -614,9 +649,8 @@ llvm::Value* create_rb(llvm::Value *registers_LD) {
     std::vector<llvm::Value *> temp;
     temp.push_back(b_inst);
     llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp); /* Value *b */
-    llvm::Value *bth_bitcast = builder.CreateBitCast(registers_bth, llvm::Type::getInt8PtrTy(context));
 
-    return bth_bitcast;
+    return registers_bth;
 }
 
 /* K(Bx()) */
@@ -626,11 +660,16 @@ llvm::Value* create_krbx() {
 
     std::vector<llvm::Value *> temp;
     temp.push_back(bx_inst);
-    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, _constants, temp); /* Value *b */
-    llvm::Value *bth_bitcast = builder.CreateBitCast(registers_bth, llvm::Type::getInt8PtrTy(context));
+    llvm::Value *registers_bxth = builder.CreateInBoundsGEP(value_struct_type, _constants, temp); /* Value *b */
 
-    return bth_bitcast;
+    return registers_bxth;
 }
+
+
+
+
+
+
 
 
 
@@ -644,8 +683,8 @@ llvm::Value* create_op_move() {
     llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
     llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    llvm::Value *ra = create_ra(registers_LD);
-    llvm::Value *rb = create_rb(registers_LD);
+    llvm::Value *ra = create_bitcast(create_ra(registers_LD));
+    llvm::Value *rb = create_bitcast(create_rb(registers_LD));
 
     temp.clear();
     temp.push_back(ra);
@@ -668,8 +707,8 @@ llvm::Value* create_op_loadk() {
     llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
     llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    llvm::Value *ra = create_ra(registers_LD);
-    llvm::Value *rb = create_krbx();
+    llvm::Value *ra = create_bitcast(create_ra(registers_LD));
+    llvm::Value *rb = create_bitcast(create_krbx());
 
     temp.clear();
     temp.push_back(ra);
@@ -682,8 +721,32 @@ llvm::Value* create_op_loadk() {
     return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
 }
 
-void create_op_add_block() {
+llvm::Value* create_op_add() {
+    builder.SetInsertPoint(op_add_block);
 
+    std::vector<llvm::Value *> temp;
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
+    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
+
+    llvm::Value *ra = create_ra(registers_LD); //Value *a = R(A(inst));
+
+    llvm::Value *b_inst = create_B();
+    llvm::Value *rkb = create_rk(b_inst, registers_LD);
+    llvm::Value *c_inst = create_C();
+    llvm::Value *rkc = create_rk(c_inst, registers_LD);
+
+    std::vector<llvm::Value *> vm_add_args;
+    vm_add_args.push_back(ra);
+    vm_add_args.push_back(rkb);
+    vm_add_args.push_back(rkc);
+    llvm::Value *vm_add_return = builder.CreateCall(vm_add, vm_add_args);
+
+    //vm_ADD
+
+
+    return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
 }
 
 void create_op_sub_block() {
