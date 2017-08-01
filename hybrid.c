@@ -540,6 +540,12 @@ const Byte lua_opmodes[] = {
 // ================
 
 #define EOF_ERROR "unexpected end of file"
+//
+void error_default() {
+    fprintf(stderr, "Error\n");
+    exit(1);
+}
+//
 
 static
 void error(const char *msg)
