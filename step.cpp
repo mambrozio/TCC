@@ -512,7 +512,6 @@ int main() {
     //create OP_DIV
     builder.SetInsertPoint(op_div_block);
     // llvm::Value *return_from_op_div = builder.CreateCall(step_in_C, step_args);
-    builder.CreateBr(end_block);
     llvm::Value *return_from_op_div = create_op_div_block();
 
     //create OP_MOD
@@ -1333,6 +1332,7 @@ llvm::Value* create_op_mul_block() {
     return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
 }
 
+//TODO div is always float. remove i64 division and tests for integer or float.
 llvm::Value* create_op_div_block() {
     op_div_block = llvm::BasicBlock::Create(context, "op_div", step_func);
 
