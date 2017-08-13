@@ -23,6 +23,10 @@
 #include <llvm/Support/DynamicLibrary.h>
 //
 
+//
+#define DEBUG do { std::cout << "AQUI" << std::endl; } while (0);
+//
+
 #define SIZE_C          9
 #define SIZE_B          9
 #define SIZE_Bx         (SIZE_C + SIZE_B)
@@ -206,11 +210,12 @@ llvm::Value *  create_op_add_block();
 llvm::Value* create_op_sub_block();
 llvm::Value* create_op_mul_block();
 llvm::Value* create_op_div_block();
-void create_op_mod_block();
-void create_op_idiv_block();
-void create_op_pow_block();
-void create_op_unm_block();
-void create_op_not_block();
+llvm::Value* create_op_mod_block();
+llvm::Value* create_op_idiv_block();
+llvm::Value* create_op_pow_block();
+llvm::Value* create_op_unm_block();
+llvm::Value* create_op_not_block();
+
 void create_op_jmp_block();
 void create_op_eq_block();
 void create_op_lt_block();
@@ -244,9 +249,9 @@ llvm::Value *_inst;
 llvm::Value *_op;
 llvm::Value *_constants;
 
-llvm::Function *vm_add;
-
 llvm::Function *llvm_memcpy;
+llvm::Function *llvm_floor;
+llvm::Function *llvm_pow;
 
 llvm::Function *error; //used
 
@@ -314,8 +319,6 @@ llvm::BasicBlock *op_mul_9_block;
 llvm::BasicBlock *op_mul_10_block;
 
 llvm::BasicBlock *op_div_1_block;
-llvm::BasicBlock *op_div_2_block;
-llvm::BasicBlock *op_div_3_block;
 llvm::BasicBlock *op_div_4_block;
 llvm::BasicBlock *op_div_5_block;
 llvm::BasicBlock *op_div_6_block;
@@ -323,6 +326,44 @@ llvm::BasicBlock *op_div_7_block;
 llvm::BasicBlock *op_div_8_block;
 llvm::BasicBlock *op_div_9_block;
 llvm::BasicBlock *op_div_10_block;
+
+llvm::BasicBlock *op_mod_1_block;
+llvm::BasicBlock *op_mod_2_block;
+llvm::BasicBlock *op_mod_3_block;
+llvm::BasicBlock *op_mod_4_block;
+llvm::BasicBlock *op_mod_5_block;
+llvm::BasicBlock *op_mod_6_block;
+llvm::BasicBlock *op_mod_7_block;
+llvm::BasicBlock *op_mod_8_block;
+llvm::BasicBlock *op_mod_9_block;
+llvm::BasicBlock *op_mod_10_block;
+
+llvm::BasicBlock *op_idiv_1_block;
+llvm::BasicBlock *op_idiv_2_block;
+llvm::BasicBlock *op_idiv_3_block;
+llvm::BasicBlock *op_idiv_4_block;
+llvm::BasicBlock *op_idiv_5_block;
+llvm::BasicBlock *op_idiv_6_block;
+llvm::BasicBlock *op_idiv_7_block;
+llvm::BasicBlock *op_idiv_8_block;
+llvm::BasicBlock *op_idiv_9_block;
+llvm::BasicBlock *op_idiv_10_block;
+
+llvm::BasicBlock *op_pow_1_block;
+llvm::BasicBlock *op_pow_4_block;
+llvm::BasicBlock *op_pow_5_block;
+llvm::BasicBlock *op_pow_6_block;
+llvm::BasicBlock *op_pow_7_block;
+llvm::BasicBlock *op_pow_8_block;
+llvm::BasicBlock *op_pow_9_block;
+llvm::BasicBlock *op_pow_10_block;
+
+llvm::BasicBlock *op_unm_1_block;
+llvm::BasicBlock *op_unm_2_block;
+
+llvm::BasicBlock *op_not_1_block;
+llvm::BasicBlock *op_not_2_block;
+llvm::BasicBlock *op_not_3_block;
 //
 
 
@@ -434,24 +475,23 @@ int main() {
     llvm::FunctionType *error_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), error_args, false);
     error = llvm::Function::Create(error_type, llvm::Function::ExternalLinkage, "error_default", module);
 
-
-
-    std::vector<llvm::Type *> vm_add_args;
-    vm_add_args.push_back(p_value_struct_type);
-    vm_add_args.push_back(p_value_struct_type);
-    vm_add_args.push_back(p_value_struct_type);
-    llvm::FunctionType *vm_add_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), vm_add_args, false);
-    vm_add = llvm::Function::Create(vm_add_type, llvm::Function::ExternalLinkage, "vm_ADD", module);
-    //
-
-
-
     //Creating llvm::memcpy function reference
-    llvm::SmallVector<llvm::Type *, 3> vec;
-    vec.push_back(llvm::Type::getInt8PtrTy(context));  /* i8 */
-    vec.push_back(llvm::Type::getInt8PtrTy(context));  /* i8 */
-    vec.push_back(llvm::Type::getInt64Ty(context));
-    llvm_memcpy = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::memcpy, vec);
+    llvm::SmallVector<llvm::Type *, 3> vec_memcpy;
+    vec_memcpy.push_back(llvm::Type::getInt8PtrTy(context));  /* i8 */
+    vec_memcpy.push_back(llvm::Type::getInt8PtrTy(context));  /* i8 */
+    vec_memcpy.push_back(llvm::Type::getInt64Ty(context));
+    llvm_memcpy = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::memcpy, vec_memcpy);
+
+    //Creating llvm::floor function reference
+    llvm::SmallVector<llvm::Type *, 1> vec_floor;
+    vec_floor.push_back(llvm::Type::getDoubleTy(context));  /* double */
+    llvm_floor = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::floor, vec_floor);
+
+    //Creating llvm::floor function reference
+    llvm::SmallVector<llvm::Type *, 2> vec_pow;
+    vec_pow.push_back(llvm::Type::getDoubleTy(context));  /* double */
+    vec_pow.push_back(llvm::Type::getDoubleTy(context));  /* double */
+    llvm_pow = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::pow, vec_pow);
 
     //create irbuilder
 //    llvm::IRBuilder<> builder(context);
@@ -465,11 +505,7 @@ int main() {
     end_block = llvm::BasicBlock::Create(context, "end", step_func);
 
     //create op's blocks
-    op_mod_block = llvm::BasicBlock::Create(context, "op_mod", step_func);
-    op_idiv_block = llvm::BasicBlock::Create(context, "op_idiv", step_func);
-    op_pow_block = llvm::BasicBlock::Create(context, "op_pow", step_func);
-    op_unm_block = llvm::BasicBlock::Create(context, "op_unm", step_func);
-    op_not_block = llvm::BasicBlock::Create(context, "op_not", step_func);
+    // op_not_block = llvm::BasicBlock::Create(context, "op_not", step_func);
     op_jmp_block = llvm::BasicBlock::Create(context, "op_jmp", step_func);
     op_eq_block = llvm::BasicBlock::Create(context, "op_eq", step_func);
     op_lt_block = llvm::BasicBlock::Create(context, "op_lt", step_func);
@@ -516,28 +552,28 @@ int main() {
 
     //create OP_MOD
     builder.SetInsertPoint(op_mod_block);
-    llvm::Value *return_from_op_mod = builder.CreateCall(step_in_C, step_args);
-    builder.CreateBr(end_block);
+    // llvm::Value *return_from_op_mod = builder.CreateCall(step_in_C, step_args);
+    llvm::Value *return_from_op_mod = create_op_mod_block();
 
     //create OP_IDIV
     builder.SetInsertPoint(op_idiv_block);
-    llvm::Value *return_from_op_idiv = builder.CreateCall(step_in_C, step_args);
-    builder.CreateBr(end_block);
+    // llvm::Value *return_from_op_idiv = builder.CreateCall(step_in_C, step_args);
+    llvm::Value *return_from_op_idiv = create_op_idiv_block();
 
     //create OP_POW
     builder.SetInsertPoint(op_pow_block);
-    llvm::Value *return_from_op_pow = builder.CreateCall(step_in_C, step_args);
-    builder.CreateBr(end_block);
+    // llvm::Value *return_from_op_pow = builder.CreateCall(step_in_C, step_args);
+    llvm::Value *return_from_op_pow = create_op_pow_block();
 
     //create OP_UNM
     builder.SetInsertPoint(op_unm_block);
-    llvm::Value *return_from_op_unm = builder.CreateCall(step_in_C, step_args);
-    builder.CreateBr(end_block);
+    // llvm::Value *return_from_op_unm = builder.CreateCall(step_in_C, step_args);
+    llvm::Value *return_from_op_unm = create_op_unm_block();
 
     //create OP_NOT
     builder.SetInsertPoint(op_not_block);
-    llvm::Value *return_from_op_not = builder.CreateCall(step_in_C, step_args);
-    builder.CreateBr(end_block);
+    // llvm::Value *return_from_op_not = builder.CreateCall(step_in_C, step_args);
+    llvm::Value *return_from_op_not = create_op_not_block();
 
     //create OP_JMP
     builder.SetInsertPoint(op_jmp_block);
@@ -591,13 +627,16 @@ int main() {
     return_phi_node->addIncoming(return_from_op_sub, op_sub_10_block);
     return_phi_node->addIncoming(return_from_op_mul, op_mul_3_block);
     return_phi_node->addIncoming(return_from_op_mul, op_mul_10_block);
-    return_phi_node->addIncoming(return_from_op_div, op_div_3_block);
     return_phi_node->addIncoming(return_from_op_div, op_div_10_block);
-    return_phi_node->addIncoming(return_from_op_mod, op_mod_block);
-    return_phi_node->addIncoming(return_from_op_idiv, op_idiv_block);
-    return_phi_node->addIncoming(return_from_op_pow, op_pow_block);
-    return_phi_node->addIncoming(return_from_op_unm, op_unm_block);
-    return_phi_node->addIncoming(return_from_op_not, op_not_block);
+    return_phi_node->addIncoming(return_from_op_mod, op_mod_3_block);
+    return_phi_node->addIncoming(return_from_op_mod, op_mod_10_block);
+    return_phi_node->addIncoming(return_from_op_idiv, op_idiv_3_block);
+    return_phi_node->addIncoming(return_from_op_idiv, op_idiv_10_block);
+    return_phi_node->addIncoming(return_from_op_pow, op_pow_10_block);
+    return_phi_node->addIncoming(return_from_op_unm, op_unm_1_block);
+    return_phi_node->addIncoming(return_from_op_unm, op_unm_2_block);
+    return_phi_node->addIncoming(return_from_op_not, op_not_3_block);
+
     return_phi_node->addIncoming(return_from_op_jmp, op_jmp_block);
     return_phi_node->addIncoming(return_from_op_eq, op_eq_block);
     return_phi_node->addIncoming(return_from_op_lt, op_lt_block);
@@ -741,7 +780,9 @@ std::vector<llvm::Value *> create_ra(llvm::Value *registers_LD) {
 }
 
 /* R(B()) */
-llvm::Value* create_rb(llvm::Value *registers_LD) {
+std::vector<llvm::Value *> create_rb(llvm::Value *registers_LD) {
+    std::vector<llvm::Value *> ret;
+
     /* R(B()) */
     llvm::Value *b_inst = create_B();
 
@@ -749,7 +790,9 @@ llvm::Value* create_rb(llvm::Value *registers_LD) {
     temp.push_back(b_inst);
     llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp); /* Value *b */
 
-    return registers_bth;
+    ret.push_back(b_inst);
+    ret.push_back(registers_bth);
+    return ret;
 }
 
 /* K(Bx()) */
@@ -786,7 +829,7 @@ llvm::Value* create_op_move_block() {
 
     llvm::Value *ra = create_ra(registers_LD)[1];
     llvm::Value *ra_bitcast = create_bitcast(ra);
-    llvm::Value *rb = create_rb(registers_LD);
+    llvm::Value *rb = create_rb(registers_LD)[1];
     llvm::Value *rb_bitcast = create_bitcast(rb);
 
     temp.clear();
@@ -1332,13 +1375,10 @@ llvm::Value* create_op_mul_block() {
     return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
 }
 
-//TODO div is always float. remove i64 division and tests for integer or float.
 llvm::Value* create_op_div_block() {
     op_div_block = llvm::BasicBlock::Create(context, "op_div", step_func);
 
     op_div_1_block = llvm::BasicBlock::Create(context, "op_div_1", step_func);
-    op_div_2_block = llvm::BasicBlock::Create(context, "op_div_2", step_func);
-    op_div_3_block = llvm::BasicBlock::Create(context, "op_div_3", step_func);
     op_div_4_block = llvm::BasicBlock::Create(context, "op_div_4", step_func);
     op_div_5_block = llvm::BasicBlock::Create(context, "op_div_5", step_func);
     op_div_6_block = llvm::BasicBlock::Create(context, "op_div_6", step_func);
@@ -1375,49 +1415,9 @@ llvm::Value* create_op_div_block() {
     llvm::Value *rkc_LD = builder.CreateLoad(rkc);
     llvm::Value *rkc_or = builder.CreateOr(llvm::ConstantInt::get(context, llvm::APInt(32, 16, true)), rkc_LD);
     llvm::Value *rkc_is_numerical_condition = builder.CreateICmpEQ(rkc_or, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
-    builder.CreateCondBr(rkc_is_numerical_condition, op_div_2_block, error_block);
+    builder.CreateCondBr(rkc_is_numerical_condition, op_div_4_block, error_block);
 
-    builder.SetInsertPoint(op_div_2_block);
-    llvm::Value *rkb_is_int = builder.CreateICmpEQ(rkb_LD, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
-    llvm::Value *rkc_is_int = builder.CreateICmpEQ(rkc_LD, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
-    llvm::Value *both_int = builder.CreateAnd(rkb_is_int, rkc_is_int);
-    builder.CreateCondBr(both_int, op_div_3_block, op_div_4_block);
-
-    // XXX TODO discover why it seg faults when adding the third argument (the 0 on the commented line. On rkb and rkc!!!
-    // op_div_1_block true
-    builder.SetInsertPoint(op_div_3_block);
-    temp.clear();
-    temp.push_back(rkb_return[0]);
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
-    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
-    llvm::Value *b_value_GEP = builder.CreateInBoundsGEP(value_struct_type, rkb_return[1], temp);
-    llvm::Value *b_value_LD = builder.CreateLoad(b_value_GEP);
-
-    temp.clear();
-    temp.push_back(rkc_return[0]);
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
-    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
-    llvm::Value *c_value_GEP = builder.CreateInBoundsGEP(value_struct_type, rkc_return[1], temp);
-    llvm::Value *c_value_LD = builder.CreateLoad(c_value_GEP);
-
-    //DIV
-    llvm::Value *div_b_c = builder.CreateSDiv(b_value_LD, c_value_LD);
-
-    temp.clear();
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
-    llvm::Value *a_type = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
-    builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), a_type);
-
-    temp.clear();
-    temp.push_back(ra_ret[0]);
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
-    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
-    llvm::Value *a_value = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
-    builder.CreateStore(div_b_c, a_value);
-    builder.CreateBr(end_block);
-
-    // op_div_1_block false
+    // op_div_4_block false
     builder.SetInsertPoint(op_div_4_block);
     llvm::SwitchInst *switch_type = builder.CreateSwitch(rkb_LD, error_block, 2);
     switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_div_5_block);
@@ -1501,24 +1501,626 @@ llvm::Value* create_op_div_block() {
     return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
 }
 
-void create_op_mod_block() {
 
+
+llvm::Value* create_op_mod_block() {
+    op_mod_block = llvm::BasicBlock::Create(context, "op_mod", step_func);
+
+    op_mod_1_block = llvm::BasicBlock::Create(context, "op_mod_1", step_func);
+    op_mod_2_block = llvm::BasicBlock::Create(context, "op_mod_2", step_func);
+    op_mod_3_block = llvm::BasicBlock::Create(context, "op_mod_3", step_func);
+    op_mod_4_block = llvm::BasicBlock::Create(context, "op_mod_4", step_func);
+    op_mod_5_block = llvm::BasicBlock::Create(context, "op_mod_5", step_func);
+    op_mod_6_block = llvm::BasicBlock::Create(context, "op_mod_6", step_func);
+    op_mod_7_block = llvm::BasicBlock::Create(context, "op_mod_7", step_func);
+    op_mod_8_block = llvm::BasicBlock::Create(context, "op_mod_8", step_func);
+    op_mod_9_block = llvm::BasicBlock::Create(context, "op_mod_9", step_func);
+    op_mod_10_block = llvm::BasicBlock::Create(context, "op_mod_10", step_func);
+
+    builder.SetInsertPoint(op_mod_block);
+
+    //
+    std::vector<llvm::Value *> temp;
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
+    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
+
+    std::vector<llvm::Value *> ra_ret = create_ra(registers_LD);
+    llvm::Value *ra = ra_ret[1]; //Value *a = R(A(inst));
+
+    llvm::Value *b_inst = create_B();
+    std::vector<llvm::Value *> rkb_return = create_rk(b_inst, registers_LD);
+    llvm::Value *rkb = rkb_return[2];
+    llvm::Value *rkb_LD = builder.CreateLoad(rkb);
+    llvm::Value *rkb_or = builder.CreateOr(llvm::ConstantInt::get(context, llvm::APInt(32, 16, true)), rkb_LD);
+    llvm::Value *rkb_is_numerical_condition = builder.CreateICmpEQ(rkb_or, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    builder.CreateCondBr(rkb_is_numerical_condition, op_mod_1_block, error_block);
+
+    //op_mod_1_block
+    builder.SetInsertPoint(op_mod_1_block);
+    llvm::Value *c_inst = create_C();
+    std::vector<llvm::Value *> rkc_return = create_rk(c_inst, registers_LD);
+    llvm::Value *rkc = rkc_return[2];
+    llvm::Value *rkc_LD = builder.CreateLoad(rkc);
+    llvm::Value *rkc_or = builder.CreateOr(llvm::ConstantInt::get(context, llvm::APInt(32, 16, true)), rkc_LD);
+    llvm::Value *rkc_is_numerical_condition = builder.CreateICmpEQ(rkc_or, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    builder.CreateCondBr(rkc_is_numerical_condition, op_mod_2_block, error_block);
+
+    //op_mod_2_block
+    builder.SetInsertPoint(op_mod_2_block);
+    llvm::Value *rkb_is_int = builder.CreateICmpEQ(rkb_LD, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    llvm::Value *rkc_is_int = builder.CreateICmpEQ(rkc_LD, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    llvm::Value *both_int = builder.CreateAnd(rkb_is_int, rkc_is_int);
+    builder.CreateCondBr(both_int, op_mod_3_block, op_mod_4_block);
+
+    // XXX TODO discover why it seg faults when adding the third argument (the 0 on the commented line. On rkb and rkc!!!
+    // op_mod_3_block true
+    builder.SetInsertPoint(op_mod_3_block);
+    temp.clear();
+    temp.push_back(rkb_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *b_value_GEP = builder.CreateInBoundsGEP(value_struct_type, rkb_return[1], temp);
+    llvm::Value *b_value_LD = builder.CreateLoad(b_value_GEP);
+
+    temp.clear();
+    temp.push_back(rkc_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *c_value_GEP = builder.CreateInBoundsGEP(value_struct_type, rkc_return[1], temp);
+    llvm::Value *c_value_LD = builder.CreateLoad(c_value_GEP);
+
+    //MOD
+    llvm::Value *mod_b_c = builder.CreateSRem(b_value_LD, c_value_LD);
+
+    temp.clear();
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_type = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
+    builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), a_type);
+
+    temp.clear();
+    temp.push_back(ra_ret[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_value = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    builder.CreateStore(mod_b_c, a_value);
+    builder.CreateBr(end_block);
+
+    // op_mod_1_block false
+    builder.SetInsertPoint(op_mod_4_block);
+    llvm::SwitchInst *switch_type = builder.CreateSwitch(rkb_LD, error_block, 2);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_mod_5_block);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), op_mod_6_block);
+
+    // op_mod_5_block (3)
+    builder.SetInsertPoint(op_mod_5_block);
+    temp.clear();
+    temp.push_back(rkb_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *b_value_GEP_2 = builder.CreateInBoundsGEP(value_struct_type, rkb_return[1], temp);
+    llvm::Value *b_bitcast = builder.CreateBitCast(b_value_GEP_2, llvm::Type::getDoublePtrTy(context));
+    llvm::Value *b_load = builder.CreateLoad(llvm::Type::getDoubleTy(context), b_bitcast);
+    builder.CreateBr(op_mod_7_block);
+
+    // op_mod_6_block (19)
+    builder.SetInsertPoint(op_mod_6_block);
+    temp.clear();
+    temp.push_back(rkb_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *b_value_GEP_3 = builder.CreateInBoundsGEP(value_struct_type, rkb_return[1], temp);
+    llvm::Value *b_load_2 = builder.CreateLoad(b_value_GEP_3);
+    llvm::Value *b_sitofp = builder.CreateSIToFP(b_load_2, llvm::Type::getDoubleTy(context));
+    builder.CreateBr(op_mod_7_block);
+
+
+    // op_mod_7_block
+    builder.SetInsertPoint(op_mod_7_block);
+    llvm::PHINode *phi_node = builder.CreatePHI(llvm::Type::getDoubleTy(context), 2); //op
+    phi_node->addIncoming(b_load, op_mod_5_block);
+    phi_node->addIncoming(b_sitofp, op_mod_6_block);
+    llvm::SwitchInst *switch_type_2 = builder.CreateSwitch(rkc_LD, error_block, 2);
+    switch_type_2->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_mod_8_block);
+    switch_type_2->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), op_mod_9_block);
+
+    // op_mod_8_block (3)
+    builder.SetInsertPoint(op_mod_8_block);
+    temp.clear();
+    temp.push_back(rkc_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *c_value_GEP_2 = builder.CreateInBoundsGEP(value_struct_type, rkc_return[1], temp);
+    llvm::Value *c_bitcast_2 = builder.CreateBitCast(c_value_GEP_2, llvm::Type::getDoublePtrTy(context));
+    llvm::Value *c_load = builder.CreateLoad(llvm::Type::getDoubleTy(context), c_bitcast_2);
+    builder.CreateBr(op_mod_10_block);
+
+    // op_mod_9_block (19)
+    builder.SetInsertPoint(op_mod_9_block);
+    temp.clear();
+    temp.push_back(rkc_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *c_value_GEP_3 = builder.CreateInBoundsGEP(value_struct_type, rkc_return[1], temp);
+    llvm::Value *c_load_2 = builder.CreateLoad(c_value_GEP_3);
+    llvm::Value *c_sitofp = builder.CreateSIToFP(c_load_2, llvm::Type::getDoubleTy(context));
+    builder.CreateBr(op_mod_10_block);
+
+    builder.SetInsertPoint(op_mod_10_block);
+    llvm::PHINode *phi_node_2 = builder.CreatePHI(llvm::Type::getDoubleTy(context), 2); //op
+    phi_node_2->addIncoming(c_load, op_mod_8_block);
+    phi_node_2->addIncoming(c_sitofp, op_mod_9_block);
+    llvm::Value *mod_b_c_2 = builder.CreateFRem(phi_node, phi_node_2);
+    temp.clear();
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_type_2 = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
+    builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), a_type_2);
+    temp.clear();
+    temp.push_back(ra_ret[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_value_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *a_bitcast_2 = builder.CreateBitCast(a_value_2, llvm::Type::getDoublePtrTy(context));
+    builder.CreateStore(mod_b_c_2, a_bitcast_2);
+    builder.CreateBr(end_block);
+    //
+
+
+    return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
 }
 
-void create_op_idiv_block() {
+llvm::Value* create_op_idiv_block() {
+    op_idiv_block = llvm::BasicBlock::Create(context, "op_idiv", step_func);
 
+    op_idiv_1_block = llvm::BasicBlock::Create(context, "op_idiv_1", step_func);
+    op_idiv_2_block = llvm::BasicBlock::Create(context, "op_idiv_2", step_func);
+    op_idiv_3_block = llvm::BasicBlock::Create(context, "op_idiv_3", step_func);
+    op_idiv_4_block = llvm::BasicBlock::Create(context, "op_idiv_4", step_func);
+    op_idiv_5_block = llvm::BasicBlock::Create(context, "op_idiv_5", step_func);
+    op_idiv_6_block = llvm::BasicBlock::Create(context, "op_idiv_6", step_func);
+    op_idiv_7_block = llvm::BasicBlock::Create(context, "op_idiv_7", step_func);
+    op_idiv_8_block = llvm::BasicBlock::Create(context, "op_idiv_8", step_func);
+    op_idiv_9_block = llvm::BasicBlock::Create(context, "op_idiv_9", step_func);
+    op_idiv_10_block = llvm::BasicBlock::Create(context, "op_idiv_10", step_func);
+
+    builder.SetInsertPoint(op_idiv_block);
+
+    //
+    std::vector<llvm::Value *> temp;
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
+    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
+
+    std::vector<llvm::Value *> ra_ret = create_ra(registers_LD);
+    llvm::Value *ra = ra_ret[1]; //Value *a = R(A(inst));
+
+    llvm::Value *b_inst = create_B();
+    std::vector<llvm::Value *> rkb_return = create_rk(b_inst, registers_LD);
+    llvm::Value *rkb = rkb_return[2];
+    llvm::Value *rkb_LD = builder.CreateLoad(rkb);
+    llvm::Value *rkb_or = builder.CreateOr(llvm::ConstantInt::get(context, llvm::APInt(32, 16, true)), rkb_LD);
+    llvm::Value *rkb_is_numerical_condition = builder.CreateICmpEQ(rkb_or, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    builder.CreateCondBr(rkb_is_numerical_condition, op_idiv_1_block, error_block);
+
+    //op_idiv_1_block
+    builder.SetInsertPoint(op_idiv_1_block);
+    llvm::Value *c_inst = create_C();
+    std::vector<llvm::Value *> rkc_return = create_rk(c_inst, registers_LD);
+    llvm::Value *rkc = rkc_return[2];
+    llvm::Value *rkc_LD = builder.CreateLoad(rkc);
+    llvm::Value *rkc_or = builder.CreateOr(llvm::ConstantInt::get(context, llvm::APInt(32, 16, true)), rkc_LD);
+    llvm::Value *rkc_is_numerical_condition = builder.CreateICmpEQ(rkc_or, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    builder.CreateCondBr(rkc_is_numerical_condition, op_idiv_2_block, error_block);
+
+    builder.SetInsertPoint(op_idiv_2_block);
+    llvm::Value *rkb_is_int = builder.CreateICmpEQ(rkb_LD, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    llvm::Value *rkc_is_int = builder.CreateICmpEQ(rkc_LD, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    llvm::Value *both_int = builder.CreateAnd(rkb_is_int, rkc_is_int);
+    builder.CreateCondBr(both_int, op_idiv_3_block, op_idiv_4_block);
+
+    // XXX TODO discover why it seg faults when adding the third argument (the 0 on the commented line. On rkb and rkc!!!
+    // op_idiv_1_block true
+    builder.SetInsertPoint(op_idiv_3_block);
+    temp.clear();
+    temp.push_back(rkb_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *b_value_GEP = builder.CreateInBoundsGEP(value_struct_type, rkb_return[1], temp);
+    llvm::Value *b_value_LD = builder.CreateLoad(b_value_GEP);
+
+    temp.clear();
+    temp.push_back(rkc_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *c_value_GEP = builder.CreateInBoundsGEP(value_struct_type, rkc_return[1], temp);
+    llvm::Value *c_value_LD = builder.CreateLoad(c_value_GEP);
+
+    //ADD
+    llvm::Value *idiv_b_c = builder.CreateSDiv(b_value_LD, c_value_LD);
+
+    temp.clear();
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_type = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
+    builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), a_type);
+
+    temp.clear();
+    temp.push_back(ra_ret[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_value = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    builder.CreateStore(idiv_b_c, a_value);
+    builder.CreateBr(end_block);
+
+    // op_idiv_1_block false
+    builder.SetInsertPoint(op_idiv_4_block);
+    llvm::SwitchInst *switch_type = builder.CreateSwitch(rkb_LD, error_block, 2);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_idiv_5_block);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), op_idiv_6_block);
+
+    // op_idiv_5_block (3)
+    builder.SetInsertPoint(op_idiv_5_block);
+    temp.clear();
+    temp.push_back(rkb_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *b_value_GEP_2 = builder.CreateInBoundsGEP(value_struct_type, rkb_return[1], temp);
+    llvm::Value *b_bitcast = builder.CreateBitCast(b_value_GEP_2, llvm::Type::getDoublePtrTy(context));
+    llvm::Value *b_load = builder.CreateLoad(llvm::Type::getDoubleTy(context), b_bitcast);
+    builder.CreateBr(op_idiv_7_block);
+
+    // op_idiv_6_block (19)
+    builder.SetInsertPoint(op_idiv_6_block);
+    temp.clear();
+    temp.push_back(rkb_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *b_value_GEP_3 = builder.CreateInBoundsGEP(value_struct_type, rkb_return[1], temp);
+    llvm::Value *b_load_2 = builder.CreateLoad(b_value_GEP_3);
+    llvm::Value *b_sitofp = builder.CreateSIToFP(b_load_2, llvm::Type::getDoubleTy(context));
+    builder.CreateBr(op_idiv_7_block);
+
+
+    // op_idiv_7_block
+    builder.SetInsertPoint(op_idiv_7_block);
+    llvm::PHINode *phi_node = builder.CreatePHI(llvm::Type::getDoubleTy(context), 2); //op
+    phi_node->addIncoming(b_load, op_idiv_5_block);
+    phi_node->addIncoming(b_sitofp, op_idiv_6_block);
+    llvm::SwitchInst *switch_type_2 = builder.CreateSwitch(rkc_LD, error_block, 2);
+    switch_type_2->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_idiv_8_block);
+    switch_type_2->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), op_idiv_9_block);
+
+    // op_idiv_8_block (3)
+    builder.SetInsertPoint(op_idiv_8_block);
+    temp.clear();
+    temp.push_back(rkc_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *c_value_GEP_2 = builder.CreateInBoundsGEP(value_struct_type, rkc_return[1], temp);
+    llvm::Value *c_bitcast_2 = builder.CreateBitCast(c_value_GEP_2, llvm::Type::getDoublePtrTy(context));
+    llvm::Value *c_load = builder.CreateLoad(llvm::Type::getDoubleTy(context), c_bitcast_2);
+    builder.CreateBr(op_idiv_10_block);
+
+    // op_idiv_9_block (19)
+    builder.SetInsertPoint(op_idiv_9_block);
+    temp.clear();
+    temp.push_back(rkc_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *c_value_GEP_3 = builder.CreateInBoundsGEP(value_struct_type, rkc_return[1], temp);
+    llvm::Value *c_load_2 = builder.CreateLoad(c_value_GEP_3);
+    llvm::Value *c_sitofp = builder.CreateSIToFP(c_load_2, llvm::Type::getDoubleTy(context));
+    builder.CreateBr(op_idiv_10_block);
+
+    builder.SetInsertPoint(op_idiv_10_block);
+    llvm::PHINode *phi_node_2 = builder.CreatePHI(llvm::Type::getDoubleTy(context), 2); //op
+    phi_node_2->addIncoming(c_load, op_idiv_8_block);
+    phi_node_2->addIncoming(c_sitofp, op_idiv_9_block);
+    llvm::Value *fdiv_b_c = builder.CreateFDiv(phi_node, phi_node_2);
+    temp.clear();
+    temp.push_back(fdiv_b_c);
+    llvm::Value *floor_fdiv_b_c = builder.CreateCall(llvm_floor, temp);
+    temp.clear();
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_type_2 = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
+    builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), a_type_2);
+    temp.clear();
+    temp.push_back(ra_ret[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_value_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *a_bitcast_2 = builder.CreateBitCast(a_value_2, llvm::Type::getDoublePtrTy(context));
+    builder.CreateStore(floor_fdiv_b_c, a_bitcast_2);
+    builder.CreateBr(end_block);
+    //
+
+
+    return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
 }
 
-void create_op_pow_block() {
+llvm::Value* create_op_pow_block() {
+    op_pow_block = llvm::BasicBlock::Create(context, "op_pow", step_func);
 
+    op_pow_1_block = llvm::BasicBlock::Create(context, "op_pow_1", step_func);
+    op_pow_4_block = llvm::BasicBlock::Create(context, "op_pow_4", step_func);
+    op_pow_5_block = llvm::BasicBlock::Create(context, "op_pow_5", step_func);
+    op_pow_6_block = llvm::BasicBlock::Create(context, "op_pow_6", step_func);
+    op_pow_7_block = llvm::BasicBlock::Create(context, "op_pow_7", step_func);
+    op_pow_8_block = llvm::BasicBlock::Create(context, "op_pow_8", step_func);
+    op_pow_9_block = llvm::BasicBlock::Create(context, "op_pow_9", step_func);
+    op_pow_10_block = llvm::BasicBlock::Create(context, "op_pow_10", step_func);
+
+    builder.SetInsertPoint(op_pow_block);
+
+    //
+    std::vector<llvm::Value *> temp;
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
+    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
+
+    std::vector<llvm::Value *> ra_ret = create_ra(registers_LD);
+    llvm::Value *ra = ra_ret[1]; //Value *a = R(A(inst));
+
+    llvm::Value *b_inst = create_B();
+    std::vector<llvm::Value *> rkb_return = create_rk(b_inst, registers_LD);
+    llvm::Value *rkb = rkb_return[2];
+    llvm::Value *rkb_LD = builder.CreateLoad(rkb);
+    llvm::Value *rkb_or = builder.CreateOr(llvm::ConstantInt::get(context, llvm::APInt(32, 16, true)), rkb_LD);
+    llvm::Value *rkb_is_numerical_condition = builder.CreateICmpEQ(rkb_or, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    builder.CreateCondBr(rkb_is_numerical_condition, op_pow_1_block, error_block);
+
+    //op_pow_1_block
+    builder.SetInsertPoint(op_pow_1_block);
+    llvm::Value *c_inst = create_C();
+    std::vector<llvm::Value *> rkc_return = create_rk(c_inst, registers_LD);
+    llvm::Value *rkc = rkc_return[2];
+    llvm::Value *rkc_LD = builder.CreateLoad(rkc);
+    llvm::Value *rkc_or = builder.CreateOr(llvm::ConstantInt::get(context, llvm::APInt(32, 16, true)), rkc_LD);
+    llvm::Value *rkc_is_numerical_condition = builder.CreateICmpEQ(rkc_or, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    builder.CreateCondBr(rkc_is_numerical_condition, op_pow_4_block, error_block);
+
+    // op_pow_4_block false
+    builder.SetInsertPoint(op_pow_4_block);
+    llvm::SwitchInst *switch_type = builder.CreateSwitch(rkb_LD, error_block, 2);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_pow_5_block);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), op_pow_6_block);
+
+    // op_pow_5_block (3)
+    builder.SetInsertPoint(op_pow_5_block);
+    temp.clear();
+    temp.push_back(rkb_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *b_value_GEP_2 = builder.CreateInBoundsGEP(value_struct_type, rkb_return[1], temp);
+    llvm::Value *b_bitcast = builder.CreateBitCast(b_value_GEP_2, llvm::Type::getDoublePtrTy(context));
+    llvm::Value *b_load = builder.CreateLoad(llvm::Type::getDoubleTy(context), b_bitcast);
+    builder.CreateBr(op_pow_7_block);
+
+    // op_pow_6_block (19)
+    builder.SetInsertPoint(op_pow_6_block);
+    temp.clear();
+    temp.push_back(rkb_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *b_value_GEP_3 = builder.CreateInBoundsGEP(value_struct_type, rkb_return[1], temp);
+    llvm::Value *b_load_2 = builder.CreateLoad(b_value_GEP_3);
+    llvm::Value *b_sitofp = builder.CreateSIToFP(b_load_2, llvm::Type::getDoubleTy(context));
+    builder.CreateBr(op_pow_7_block);
+
+
+    // op_pow_7_block
+    builder.SetInsertPoint(op_pow_7_block);
+    llvm::PHINode *phi_node = builder.CreatePHI(llvm::Type::getDoubleTy(context), 2); //op
+    phi_node->addIncoming(b_load, op_pow_5_block);
+    phi_node->addIncoming(b_sitofp, op_pow_6_block);
+    llvm::SwitchInst *switch_type_2 = builder.CreateSwitch(rkc_LD, error_block, 2);
+    switch_type_2->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_pow_8_block);
+    switch_type_2->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), op_pow_9_block);
+
+    // op_pow_8_block (3)
+    builder.SetInsertPoint(op_pow_8_block);
+    temp.clear();
+    temp.push_back(rkc_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *c_value_GEP_2 = builder.CreateInBoundsGEP(value_struct_type, rkc_return[1], temp);
+    llvm::Value *c_bitcast_2 = builder.CreateBitCast(c_value_GEP_2, llvm::Type::getDoublePtrTy(context));
+    llvm::Value *c_load = builder.CreateLoad(llvm::Type::getDoubleTy(context), c_bitcast_2);
+    builder.CreateBr(op_pow_10_block);
+
+    // op_pow_9_block (19)
+    builder.SetInsertPoint(op_pow_9_block);
+    temp.clear();
+    temp.push_back(rkc_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *c_value_GEP_3 = builder.CreateInBoundsGEP(value_struct_type, rkc_return[1], temp);
+    llvm::Value *c_load_2 = builder.CreateLoad(c_value_GEP_3);
+    llvm::Value *c_sitofp = builder.CreateSIToFP(c_load_2, llvm::Type::getDoubleTy(context));
+    builder.CreateBr(op_pow_10_block);
+
+    builder.SetInsertPoint(op_pow_10_block);
+    llvm::PHINode *phi_node_2 = builder.CreatePHI(llvm::Type::getDoubleTy(context), 2); //op
+    phi_node_2->addIncoming(c_load, op_pow_8_block);
+    phi_node_2->addIncoming(c_sitofp, op_pow_9_block);
+    temp.clear();
+    temp.push_back(phi_node);
+    temp.push_back(phi_node_2);
+    llvm::Value *pow_b_c = builder.CreateCall(llvm_pow, temp);
+    temp.clear();
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_type_2 = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
+    builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), a_type_2);
+    temp.clear();
+    temp.push_back(ra_ret[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_value_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *a_bitcast_2 = builder.CreateBitCast(a_value_2, llvm::Type::getDoublePtrTy(context));
+    builder.CreateStore(pow_b_c, a_bitcast_2);
+    builder.CreateBr(end_block);
+    //
+
+
+    return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
 }
 
-void create_op_unm_block() {
+llvm::Value* create_op_unm_block() {
+    op_unm_block = llvm::BasicBlock::Create(context, "op_unm", step_func);
 
+    op_unm_1_block = llvm::BasicBlock::Create(context, "op_unm_1", step_func);
+    op_unm_2_block = llvm::BasicBlock::Create(context, "op_unm_2", step_func);
+
+    builder.SetInsertPoint(op_unm_block);
+
+    std::vector<llvm::Value *> temp;
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
+    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
+
+    std::vector<llvm::Value *> ra_return = create_ra(registers_LD);
+    llvm::Value * ra = ra_return[1];
+
+    /* R(B()) */
+    llvm::Value *b_inst = create_B();
+    llvm::Value *b_inst_zext = builder.CreateZExt(b_inst, llvm::Type::getInt64Ty(context));
+    temp.clear();
+    temp.push_back(b_inst_zext);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp); /* Value *b */
+    llvm::Value *b_LD = builder.CreateLoad(registers_bth);
+
+    llvm::SwitchInst *switch_type = builder.CreateSwitch(b_LD, error_block, 2);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_unm_1_block);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), op_unm_2_block);
+
+    builder.SetInsertPoint(op_unm_1_block);
+    //fsub
+    temp.clear();
+    temp.push_back(b_inst_zext);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *registers_bth_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *b_bitcast = builder.CreateBitCast(registers_bth_2, llvm::Type::getDoublePtrTy(context));
+    llvm::Value *b_value_LD = builder.CreateLoad(b_bitcast);
+    llvm::Value *fsub = builder.CreateFSub(llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), -0.0), b_value_LD);
+
+    temp.clear();
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_type_2 = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
+    builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), a_type_2);
+    temp.clear();
+    temp.push_back(ra_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_value_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *a_bitcast_2 = builder.CreateBitCast(a_value_2, llvm::Type::getDoublePtrTy(context));
+    builder.CreateStore(fsub, a_bitcast_2);
+    builder.CreateBr(end_block);
+
+
+    builder.SetInsertPoint(op_unm_2_block);
+    //sub
+    temp.clear();
+    temp.push_back(b_inst_zext);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *registers_bth_3 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *b_value_LD_2 = builder.CreateLoad(registers_bth_3);
+    llvm::Value *sub = builder.CreateSub(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0), b_value_LD_2);
+
+    temp.clear();
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_type = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
+    builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), a_type);
+    temp.clear();
+    temp.push_back(ra_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_value = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    builder.CreateStore(sub, a_value);
+    builder.CreateBr(end_block);
+
+
+    return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
 }
 
-void create_op_not_block() {
+llvm::Value* create_op_not_block() {
+    op_not_block = llvm::BasicBlock::Create(context, "op_not", step_func);
 
+    op_not_1_block = llvm::BasicBlock::Create(context, "op_not_1", step_func);
+    op_not_2_block = llvm::BasicBlock::Create(context, "op_not_2", step_func);
+    op_not_3_block = llvm::BasicBlock::Create(context, "op_not_3", step_func);
+
+    builder.SetInsertPoint(op_not_block);
+
+    std::vector<llvm::Value *> temp;
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
+    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
+
+    std::vector<llvm::Value *> ra_return = create_ra(registers_LD);
+    llvm::Value * ra = ra_return[1];
+
+    /* R(B()) */
+    llvm::Value *b_inst = create_B();
+    llvm::Value *b_inst_zext = builder.CreateZExt(b_inst, llvm::Type::getInt64Ty(context));
+    temp.clear();
+    temp.push_back(b_inst_zext);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *registers_bth = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp); /* Value *b */
+    llvm::Value *b_LD = builder.CreateLoad(registers_bth);
+    llvm::SwitchInst *switch_type = builder.CreateSwitch(b_LD, op_not_2_block, 2);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)), op_not_3_block);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)), op_not_1_block);
+
+    builder.SetInsertPoint(op_not_1_block);
+    temp.clear();
+    temp.push_back(b_inst_zext);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *registers_bth_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp); /* Value *b */
+    llvm::Value *b_bitcast = builder.CreateBitCast(registers_bth_2, llvm::Type::getInt32PtrTy(context));
+    llvm::Value *b_LD_2 = builder.CreateLoad(b_bitcast);
+    llvm::Value *compare = builder.CreateICmpEQ(b_LD_2, llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    builder.CreateBr(op_not_3_block);
+
+    builder.SetInsertPoint(op_not_2_block);
+    builder.CreateBr(op_not_3_block);
+
+    builder.SetInsertPoint(op_not_3_block);
+    llvm::PHINode *phi_node = builder.CreatePHI(llvm::Type::getInt1Ty(context), 2); //op
+    phi_node->addIncoming(llvm::ConstantInt::getFalse(context), op_not_2_block);
+    phi_node->addIncoming(compare, op_not_1_block);
+    phi_node->addIncoming(llvm::ConstantInt::getTrue(context), op_not_block);
+    llvm::Value *phi_zext = builder.CreateZExt(phi_node, llvm::Type::getInt32Ty(context));
+
+    llvm::Value *a_inst_zext = builder.CreateZExt(ra_return[0], llvm::Type::getInt64Ty(context));
+    temp.clear();
+    temp.push_back(a_inst_zext);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *a_type = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)), a_type);
+
+    temp.clear();
+    temp.push_back(a_inst_zext);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *a_value = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *a_value_bitcast = builder.CreateBitCast(a_value, llvm::Type::getInt32PtrTy(context));
+    builder.CreateStore(phi_zext, a_value_bitcast);
+
+    builder.CreateBr(end_block);
+
+    return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
 }
 
 void create_op_jmp_block() {
@@ -1544,4 +2146,3 @@ void create_op_forloop_block() {
 void create_op_forprep_block() {
 
 }
-
