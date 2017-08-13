@@ -215,8 +215,8 @@ llvm::Value* create_op_idiv_block();
 llvm::Value* create_op_pow_block();
 llvm::Value* create_op_unm_block();
 llvm::Value* create_op_not_block();
+llvm::Value* create_op_jmp_block();
 
-void create_op_jmp_block();
 void create_op_eq_block();
 void create_op_lt_block();
 void create_op_le_block();
@@ -505,8 +505,6 @@ int main() {
     end_block = llvm::BasicBlock::Create(context, "end", step_func);
 
     //create op's blocks
-    // op_not_block = llvm::BasicBlock::Create(context, "op_not", step_func);
-    op_jmp_block = llvm::BasicBlock::Create(context, "op_jmp", step_func);
     op_eq_block = llvm::BasicBlock::Create(context, "op_eq", step_func);
     op_lt_block = llvm::BasicBlock::Create(context, "op_lt", step_func);
     op_le_block = llvm::BasicBlock::Create(context, "op_le", step_func);
@@ -576,9 +574,11 @@ int main() {
     llvm::Value *return_from_op_not = create_op_not_block();
 
     //create OP_JMP
-    builder.SetInsertPoint(op_jmp_block);
-    llvm::Value *return_from_op_jmp = builder.CreateCall(step_in_C, step_args);
-    builder.CreateBr(end_block);
+    // op_jmp_block = llvm::BasicBlock::Create(context, "op_jmp", step_func);
+    // builder.SetInsertPoint(op_jmp_block);
+    // llvm::Value *return_from_op_jmp = builder.CreateCall(step_in_C, step_args);
+    // builder.CreateBr(end_block);
+    llvm::Value *return_from_op_jmp = create_op_jmp_block();
 
     //create OP_EQ
     builder.SetInsertPoint(op_eq_block);
@@ -636,8 +636,8 @@ int main() {
     return_phi_node->addIncoming(return_from_op_unm, op_unm_1_block);
     return_phi_node->addIncoming(return_from_op_unm, op_unm_2_block);
     return_phi_node->addIncoming(return_from_op_not, op_not_3_block);
-
     return_phi_node->addIncoming(return_from_op_jmp, op_jmp_block);
+
     return_phi_node->addIncoming(return_from_op_eq, op_eq_block);
     return_phi_node->addIncoming(return_from_op_lt, op_lt_block);
     return_phi_node->addIncoming(return_from_op_le, op_le_block);
@@ -807,7 +807,13 @@ llvm::Value* create_krbx() {
     return registers_bxth;
 }
 
+llvm::Value* create_sbx() {
+    llvm::Value *lshr = builder.CreateLShr(_inst, llvm::ConstantInt::get(context, llvm::APInt(32, 14, true)));
+    llvm::Value *add = builder.CreateAdd(lshr, llvm::ConstantInt::get(context, llvm::APInt(32, -131071, true)));
+    llvm::Value *sext = builder.CreateSExt(add, llvm::Type::getInt64Ty(context));
 
+    return sext;
+}
 
 
 
@@ -2123,8 +2129,15 @@ llvm::Value* create_op_not_block() {
     return llvm::ConstantInt::get(context, llvm::APInt(64, 0, true));
 }
 
-void create_op_jmp_block() {
+llvm::Value* create_op_jmp_block() {
+    op_jmp_block = llvm::BasicBlock::Create(context, "op_jmp", step_func);
 
+    builder.SetInsertPoint(op_jmp_block);
+
+    llvm::Value *sbx = create_sbx();
+    builder.CreateBr(end_block);
+
+    return sbx;
 }
 
 void create_op_eq_block() {
