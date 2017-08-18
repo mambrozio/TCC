@@ -26,10 +26,10 @@ hybrid: hybrid.c interpret.cpp step.cpp
 	./step
 	$(LLC) $(LLCFLAGS) interpret.ll
 	$(LLC) $(LLCFLAGS) step.ll
-	gcc -c interpret.s -O3
-	gcc -c step.s -O3
+	gcc -c interpret.s $(CFLAGS)
+	gcc -c step.s $(CFLAGS)
 	$(CC) $(CFLAGS) $< interpret.o step.o -o $@
-	
+
 clean:
 	rm -rf $(GENERATED)
 
