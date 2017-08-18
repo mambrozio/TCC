@@ -1,3 +1,9 @@
-./examples/*.byte
+/examples/*.byte
 c-minilua
 README.txt
+interpret
+step
+hybrid
+*.ll
+*.o
+*.s
