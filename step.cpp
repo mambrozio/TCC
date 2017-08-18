@@ -220,7 +220,7 @@ llvm::Value* create_op_jmp_block();
 void create_op_eq_block();
 llvm::Value* create_op_lt_block();
 llvm::Value* create_op_le_block();
-void create_op_forloop_block();
+llvm::Value* create_op_forloop_block();
 void create_op_forprep_block();
 
 
@@ -254,6 +254,22 @@ llvm::Function *llvm_floor;
 llvm::Function *llvm_pow;
 
 llvm::Function *error; //used
+
+// debug errors
+llvm::Function *error_1;
+llvm::Function *error_2;
+llvm::Function *error_3;
+llvm::Function *error_4;
+llvm::Function *error_5;
+llvm::Function *error_6;
+
+// llvm::BasicBlock *error_block_1;
+// llvm::BasicBlock *error_block_2;
+// llvm::BasicBlock *error_block_3;
+// llvm::BasicBlock *error_block_4;
+// llvm::BasicBlock *error_block_5;
+// llvm::BasicBlock *error_block_6;
+//
 
 //
 llvm::Function *step_in_C;
@@ -388,6 +404,25 @@ llvm::BasicBlock *op_le_8_block;
 llvm::BasicBlock *op_le_9_block;
 llvm::BasicBlock *op_le_10_block;
 llvm::BasicBlock *op_le_11_block;
+
+llvm::BasicBlock *op_forloop_1_block;
+llvm::BasicBlock *op_forloop_2_block;
+llvm::BasicBlock *op_forloop_3_block;
+llvm::BasicBlock *op_forloop_4_block;
+llvm::BasicBlock *op_forloop_5_block;
+llvm::BasicBlock *op_forloop_6_block;
+llvm::BasicBlock *op_forloop_7_block;
+llvm::BasicBlock *op_forloop_8_block;
+llvm::BasicBlock *op_forloop_9_block;
+llvm::BasicBlock *op_forloop_10_block;
+llvm::BasicBlock *op_forloop_11_block;
+llvm::BasicBlock *op_forloop_12_block;
+llvm::BasicBlock *op_forloop_13_block;
+llvm::BasicBlock *op_forloop_14_block;
+llvm::BasicBlock *op_forloop_15_block;
+llvm::BasicBlock *op_forloop_16_block;
+llvm::BasicBlock *op_forloop_17_block;
+llvm::BasicBlock *op_forloop_18_block;
 //
 
 
@@ -499,6 +534,15 @@ int main() {
     llvm::FunctionType *error_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), error_args, false);
     error = llvm::Function::Create(error_type, llvm::Function::ExternalLinkage, "error_default", module);
 
+    // debug errors
+    // error_1 = llvm::Function::Create(error_type, llvm::Function::ExternalLinkage, "error_1", module);
+    // error_2 = llvm::Function::Create(error_type, llvm::Function::ExternalLinkage, "error_2", module);
+    // error_3 = llvm::Function::Create(error_type, llvm::Function::ExternalLinkage, "error_3", module);
+    // error_4 = llvm::Function::Create(error_type, llvm::Function::ExternalLinkage, "error_4", module);
+    // error_5 = llvm::Function::Create(error_type, llvm::Function::ExternalLinkage, "error_5", module);
+    // error_6 = llvm::Function::Create(error_type, llvm::Function::ExternalLinkage, "error_6", module);
+    //
+
     //Creating llvm::memcpy function reference
     llvm::SmallVector<llvm::Type *, 3> vec_memcpy;
     vec_memcpy.push_back(llvm::Type::getInt8PtrTy(context));  /* i8 */
@@ -530,11 +574,20 @@ int main() {
 
     //create op's blocks
     op_eq_block = llvm::BasicBlock::Create(context, "op_eq", step_func);
-    op_forloop_block = llvm::BasicBlock::Create(context, "op_forloop", step_func);
+    // op_forloop_block = llvm::BasicBlock::Create(context, "op_forloop", step_func);
     op_forprep_block = llvm::BasicBlock::Create(context, "op_forprep", step_func);
     default_block = llvm::BasicBlock::Create(context, "op_default", step_func);
 
     error_block = llvm::BasicBlock::Create(context, "error_block", step_func);
+
+    //debug error
+    // error_block_1 = llvm::BasicBlock::Create(context, "error_block_1", step_func);
+    // error_block_2 = llvm::BasicBlock::Create(context, "error_block_2", step_func);
+    // error_block_3 = llvm::BasicBlock::Create(context, "error_block_3", step_func);
+    // error_block_4 = llvm::BasicBlock::Create(context, "error_block_4", step_func);
+    // error_block_5 = llvm::BasicBlock::Create(context, "error_block_5", step_func);
+    // error_block_6 = llvm::BasicBlock::Create(context, "error_block_6", step_func);
+    //
 
     // --- Create code for the entry block
     builder.SetInsertPoint(entry_block);
@@ -617,8 +670,8 @@ int main() {
 
     //create OP_FORLOOP
     builder.SetInsertPoint(op_forloop_block);
-    llvm::Value *return_from_op_forloop = builder.CreateCall(step_in_C, step_args);
-    builder.CreateBr(end_block);
+    // llvm::Value *return_from_op_forloop = builder.CreateCall(step_in_C, step_args);
+    llvm::Value *return_from_op_forloop = create_op_forloop_block();
 
     //create OP_FORPREP
     builder.SetInsertPoint(op_forprep_block);
@@ -634,6 +687,32 @@ int main() {
     builder.SetInsertPoint(error_block);
     builder.CreateCall(error);
     builder.CreateUnreachable();
+
+    //DEBUG error
+    // builder.SetInsertPoint(error_block_1);
+    // builder.CreateCall(error_1);
+    // builder.CreateUnreachable();
+    //
+    // builder.SetInsertPoint(error_block_2);
+    // builder.CreateCall(error_2);
+    // builder.CreateUnreachable();
+    //
+    // builder.SetInsertPoint(error_block_3);
+    // builder.CreateCall(error_3);
+    // builder.CreateUnreachable();
+    //
+    // builder.SetInsertPoint(error_block_4);
+    // builder.CreateCall(error_4);
+    // builder.CreateUnreachable();
+    //
+    // builder.SetInsertPoint(error_block_5);
+    // builder.CreateCall(error_5);
+    // builder.CreateUnreachable();
+    //
+    // builder.SetInsertPoint(error_block_6);
+    // builder.CreateCall(error_6);
+    // builder.CreateUnreachable();
+    //
 
     //create END label
     builder.SetInsertPoint(end_block);
@@ -659,9 +738,11 @@ int main() {
     return_phi_node->addIncoming(return_from_op_jmp, op_jmp_block);
 
     return_phi_node->addIncoming(return_from_op_eq, op_eq_block);
-    return_phi_node->addIncoming(return_from_op_lt, op_lt_11_block); //doing
-    return_phi_node->addIncoming(return_from_op_le, op_le_11_block); //doing
-    return_phi_node->addIncoming(return_from_op_forloop, op_forloop_block);
+    return_phi_node->addIncoming(return_from_op_lt, op_lt_11_block);
+    return_phi_node->addIncoming(return_from_op_le, op_le_11_block);
+    return_phi_node->addIncoming(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)), op_forloop_13_block); //doing
+    return_phi_node->addIncoming(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)), op_forloop_17_block); //doing
+    return_phi_node->addIncoming(return_from_op_forloop, op_forloop_18_block); //doing
     return_phi_node->addIncoming(return_from_op_forprep, op_forprep_block);
     return_phi_node->addIncoming(return_from_op_default, default_block);
     builder.CreateRet(return_phi_node);
@@ -2464,8 +2545,255 @@ llvm::Value* create_op_le_block() {
     return zext_result;
 }
 
-void create_op_forloop_block() {
+llvm::Value* create_op_forloop_block() {
+    op_forloop_block = llvm::BasicBlock::Create(context, "op_forloop", step_func);
 
+    op_forloop_1_block = llvm::BasicBlock::Create(context, "op_forloop_1", step_func);
+    op_forloop_2_block = llvm::BasicBlock::Create(context, "op_forloop_2", step_func);
+    op_forloop_3_block = llvm::BasicBlock::Create(context, "op_forloop_3", step_func);
+    op_forloop_4_block = llvm::BasicBlock::Create(context, "op_forloop_4", step_func);
+    op_forloop_5_block = llvm::BasicBlock::Create(context, "op_forloop_5", step_func);
+    op_forloop_6_block = llvm::BasicBlock::Create(context, "op_forloop_6", step_func);
+    op_forloop_7_block = llvm::BasicBlock::Create(context, "op_forloop_7", step_func);
+    op_forloop_8_block = llvm::BasicBlock::Create(context, "op_forloop_8", step_func);
+    op_forloop_9_block = llvm::BasicBlock::Create(context, "op_forloop_9", step_func);
+    op_forloop_10_block = llvm::BasicBlock::Create(context, "op_forloop_10", step_func);
+    op_forloop_11_block = llvm::BasicBlock::Create(context, "op_forloop_11", step_func);
+    op_forloop_12_block = llvm::BasicBlock::Create(context, "op_forloop_12", step_func);
+    op_forloop_13_block = llvm::BasicBlock::Create(context, "op_forloop_13", step_func);
+    op_forloop_14_block = llvm::BasicBlock::Create(context, "op_forloop_14", step_func);
+    op_forloop_15_block = llvm::BasicBlock::Create(context, "op_forloop_15", step_func);
+    op_forloop_16_block = llvm::BasicBlock::Create(context, "op_forloop_16", step_func);
+    op_forloop_17_block = llvm::BasicBlock::Create(context, "op_forloop_17", step_func);
+    op_forloop_18_block = llvm::BasicBlock::Create(context, "op_forloop_18", step_func);
+
+    builder.SetInsertPoint(op_forloop_block);
+    llvm::Value *a = create_A();
+    llvm::Value *a_i64 = builder.CreateZExt(a, llvm::Type::getInt64Ty(context));
+    std::vector<llvm::Value *> temp;
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
+    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
+    temp.clear();
+    temp.push_back(a_i64);
+    llvm::Value *r_GEP = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *limit_offset = builder.CreateAdd(a_i64, llvm::ConstantInt::get(context, llvm::APInt(64, 1, true)));
+    llvm::Value *step_offset = builder.CreateAdd(a_i64, llvm::ConstantInt::get(context, llvm::APInt(64, 2, true)));
+
+    temp.clear();
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *init_GEP = builder.CreateInBoundsGEP(value_struct_type, r_GEP, temp);
+    llvm::Value *init_LD = builder.CreateLoad(init_GEP);
+
+    //
+    llvm::Value *init_or = builder.CreateOr(llvm::ConstantInt::get(context, llvm::APInt(32, 16, true)), init_LD);
+    llvm::Value *init_is_numerical_condition = builder.CreateICmpEQ(init_or, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    builder.CreateCondBr(init_is_numerical_condition, op_forloop_1_block, error_block);
+
+    //
+    //op_add_1_block
+    builder.SetInsertPoint(op_forloop_1_block);
+    temp.clear();
+    temp.push_back(step_offset);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *step_GEP = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *step_LD = builder.CreateLoad(step_GEP);
+    llvm::Value *step_or = builder.CreateOr(llvm::ConstantInt::get(context, llvm::APInt(32, 16, true)), step_LD);
+    llvm::Value *step_is_numerical_condition = builder.CreateICmpEQ(step_or, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    builder.CreateCondBr(step_is_numerical_condition, op_forloop_2_block, error_block);
+    //
+    builder.SetInsertPoint(op_forloop_2_block);
+    llvm::Value *init_is_int = builder.CreateICmpEQ(init_LD, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    llvm::Value *step_is_int = builder.CreateICmpEQ(step_LD, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    llvm::Value *both_int = builder.CreateAnd(init_is_int, step_is_int);
+    builder.CreateCondBr(both_int, op_forloop_3_block, op_forloop_4_block);
+    //
+    // // XXX TODO discover why it seg faults when adding the third argument (the 0 on the commented line. On rkb and rkc!!!
+    // op_forloop_3_block true
+    builder.SetInsertPoint(op_forloop_3_block);
+    temp.clear();
+    temp.push_back(a_i64);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *init_value_GEP = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *init_value_LD = builder.CreateLoad(init_value_GEP);
+    temp.clear();
+    temp.push_back(step_offset);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *step_value_GEP = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *step_value_LD = builder.CreateLoad(step_value_GEP);
+
+    //ADD
+    llvm::Value *add_init_step = builder.CreateAdd(init_value_LD, step_value_LD);
+
+    builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), init_GEP);
+    builder.CreateStore(add_init_step, init_value_GEP);
+    llvm::Value *add_bitcast_double = builder.CreateBitCast(add_init_step, llvm::Type::getDoubleTy(context));
+    builder.CreateBr(op_forloop_11_block);
+    //
+    // op_add_1_block false
+    builder.SetInsertPoint(op_forloop_4_block);
+    llvm::SwitchInst *switch_type = builder.CreateSwitch(init_LD, error_block, 2);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_forloop_5_block);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), op_forloop_6_block);
+    //
+    // op_add_5_block (3)
+    builder.SetInsertPoint(op_forloop_5_block);
+    temp.clear();
+    temp.push_back(a_i64);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *init_value_GEP_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *init_double_bitcast = builder.CreateBitCast(init_value_GEP_2, llvm::Type::getDoublePtrTy(context));
+    llvm::Value *init_double_load = builder.CreateLoad(llvm::Type::getDoubleTy(context), init_double_bitcast);
+    builder.CreateBr(op_forloop_7_block);
+    //
+    // op_add_6_block (19)
+    builder.SetInsertPoint(op_forloop_6_block);
+    temp.clear();
+    temp.push_back(a_i64);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *init_value_GEP_3 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *init_int_load = builder.CreateLoad(init_value_GEP_3);
+    llvm::Value *init_sitofp = builder.CreateSIToFP(init_int_load, llvm::Type::getDoubleTy(context));
+    builder.CreateBr(op_forloop_7_block);
+    //
+    // op_add_7_block
+    builder.SetInsertPoint(op_forloop_7_block);
+    llvm::PHINode *phi_node = builder.CreatePHI(llvm::Type::getDoubleTy(context), 2); //op
+    phi_node->addIncoming(init_double_load, op_forloop_5_block);
+    phi_node->addIncoming(init_sitofp, op_forloop_6_block);
+    llvm::SwitchInst *switch_type_2 = builder.CreateSwitch(step_LD, error_block, 2);
+    switch_type_2->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_forloop_8_block);
+    switch_type_2->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), op_forloop_9_block);
+    //
+    // op_add_8_block (3)
+    builder.SetInsertPoint(op_forloop_8_block);
+    temp.clear();
+    temp.push_back(step_offset);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *step_value_GEP_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *step_double_bitcast = builder.CreateBitCast(step_value_GEP_2, llvm::Type::getDoublePtrTy(context));
+    llvm::Value *step_double_load = builder.CreateLoad(llvm::Type::getDoubleTy(context), step_double_bitcast);
+    builder.CreateBr(op_forloop_10_block);
+    //
+    // op_add_9_block (19)
+    builder.SetInsertPoint(op_forloop_9_block);
+    temp.clear();
+    temp.push_back(step_offset);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *step_value_GEP_3 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *step_int_load = builder.CreateLoad(step_value_GEP_3);
+    llvm::Value *step_sitofp = builder.CreateSIToFP(step_int_load, llvm::Type::getDoubleTy(context));
+    builder.CreateBr(op_forloop_10_block);
+
+    //
+    builder.SetInsertPoint(op_forloop_10_block);
+    llvm::PHINode *phi_node_2 = builder.CreatePHI(llvm::Type::getDoubleTy(context), 2); //op
+    phi_node_2->addIncoming(step_double_load, op_forloop_8_block);
+    phi_node_2->addIncoming(step_sitofp, op_forloop_9_block);
+    llvm::Value *fadd_init_step = builder.CreateFAdd(phi_node, phi_node_2);
+    builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), init_GEP);
+    temp.clear();
+    temp.push_back(a_i64);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *init_value_GEP_4 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *init_value_bitcast = builder.CreateBitCast(init_value_GEP_4, llvm::Type::getDoublePtrTy(context));
+    builder.CreateStore(fadd_init_step, init_value_bitcast);
+    llvm::Value *add_bitcast = builder.CreateBitCast(fadd_init_step, llvm::Type::getInt64Ty(context));
+    builder.CreateBr(op_forloop_11_block);
+    //
+
+    //start if (vm_LE ...)... part
+    builder.SetInsertPoint(op_forloop_11_block);
+    llvm::PHINode *phi_node_3 = builder.CreatePHI(llvm::Type::getInt64Ty(context), 2); //op
+    phi_node_3->addIncoming(add_init_step, op_forloop_3_block);
+    phi_node_3->addIncoming(add_bitcast, op_forloop_10_block);
+    llvm::PHINode *phi_node_4 = builder.CreatePHI(llvm::Type::getDoubleTy(context), 2); //op
+    phi_node_4->addIncoming(add_bitcast_double, op_forloop_3_block);
+    phi_node_4->addIncoming(fadd_init_step, op_forloop_10_block);
+    llvm::PHINode *phi_node_5 = builder.CreatePHI(llvm::Type::getInt32Ty(context), 2); //op
+    phi_node_5->addIncoming(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), op_forloop_3_block);
+    phi_node_5->addIncoming(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_forloop_10_block);
+    temp.clear();
+    temp.push_back(limit_offset);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    llvm::Value *limit_GEP = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *limit_LD = builder.CreateLoad(limit_GEP);
+    llvm::Value *limit_or = builder.CreateOr(llvm::ConstantInt::get(context, llvm::APInt(32, 16, true)), limit_LD);
+    llvm::Value *limit_is_numerical_condition = builder.CreateICmpEQ(limit_or, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    builder.CreateCondBr(limit_is_numerical_condition, op_forloop_12_block, error_block);
+
+    builder.SetInsertPoint(op_forloop_12_block);
+    llvm::Value *init_type = builder.CreateICmpEQ(phi_node_5, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    llvm::Value *limit_type = builder.CreateICmpEQ(limit_LD, llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)));
+    llvm::Value *and_types = builder.CreateAnd(init_type, limit_type);
+    llvm::Value *type_selector = builder.CreateSelect(and_types,init_type ,limit_type);
+    builder.CreateCondBr(type_selector, op_forloop_13_block, op_forloop_14_block);
+
+    builder.SetInsertPoint(op_forloop_13_block);
+    temp.clear();
+    temp.push_back(limit_offset);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *limit_GEP_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *limit_LD_2 = builder.CreateLoad(limit_GEP_2);
+    //SLT
+    llvm::Value *sgt_init_limit = builder.CreateICmpSGT(phi_node_3, limit_LD_2);
+    builder.CreateCondBr(sgt_init_limit, end_block, op_forloop_18_block);
+
+    builder.SetInsertPoint(op_forloop_14_block);
+    llvm::Value *is_float = builder.CreateICmpEQ(phi_node_5, llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)));
+    llvm::Value *sitofp = builder.CreateSIToFP(phi_node_3, llvm::Type::getDoubleTy(context));
+    llvm::Value *select = builder.CreateSelect(is_float, phi_node_4, sitofp);
+    llvm::SwitchInst *switch_type_3 = builder.CreateSwitch(limit_LD, error_block, 2);
+    switch_type_3->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_forloop_15_block);
+    switch_type_3->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), op_forloop_16_block);
+
+    builder.SetInsertPoint(op_forloop_15_block);
+    temp.clear();
+    temp.push_back(limit_offset);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *limit_GEP_3 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *limit_bitcast = builder.CreateBitCast(limit_GEP_3, llvm::Type::getDoublePtrTy(context));
+    llvm::Value *limit_value = builder.CreateLoad(limit_bitcast);
+    builder.CreateBr(op_forloop_17_block);
+
+    builder.SetInsertPoint(op_forloop_16_block);
+    temp.clear();
+    temp.push_back(limit_offset);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *limit_GEP_4 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *limit_value_2 = builder.CreateLoad(limit_GEP_4);
+    llvm::Value *sitofp_2 = builder.CreateSIToFP(limit_value_2, llvm::Type::getDoubleTy(context));
+    builder.CreateBr(op_forloop_17_block);
+
+    builder.SetInsertPoint(op_forloop_17_block);
+    llvm::PHINode *phi_node_6 = builder.CreatePHI(llvm::Type::getDoubleTy(context), 2); //op
+    phi_node_6->addIncoming(limit_value, op_forloop_15_block);
+    phi_node_6->addIncoming(sitofp_2, op_forloop_16_block);
+    llvm::Value *fcmp = builder.CreateFCmpUGT(select, phi_node_6);
+    llvm::Value *select_2 = builder.CreateCondBr(fcmp, end_block, op_forloop_18_block);
+
+    builder.SetInsertPoint(op_forloop_18_block);
+    llvm::Value *sbx = create_sbx();
+    llvm::Value *var_offset = builder.CreateAdd(a_i64, llvm::ConstantInt::get(context, llvm::APInt(64, 3, true)));
+    temp.clear();
+    temp.push_back(var_offset);
+    llvm::Value *var_GEP = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
+    llvm::Value *var_bitcast = builder.CreateBitCast(var_GEP, llvm::Type::getInt8PtrTy(context));
+    llvm::Value *init_bitcast = builder.CreateBitCast(r_GEP, llvm::Type::getInt8PtrTy(context));
+    temp.clear();
+    temp.push_back(var_bitcast);
+    temp.push_back(init_bitcast);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 16, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 8, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(1, 0, true)));
+    builder.CreateCall(llvm_memcpy, temp);
+    builder.CreateBr(end_block);
+
+    return sbx;
 }
 
 void create_op_forprep_block() {
