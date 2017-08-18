@@ -57,7 +57,7 @@
 #define LUA_NUMTAGS             9
 
 #define LUA_TNUMFLT     (LUA_TNUMBER | (0 << 4))  /* float numbers */
-#define LUA_TNUMINT     (LUA_TNUMBER | (1 << 4))  /* integer numbers */ 
+#define LUA_TNUMINT     (LUA_TNUMBER | (1 << 4))  /* integer numbers */
 
 #define LUA_TSHRSTR     (LUA_TSTRING | (0 << 4))  /* short strings */
 #define LUA_TLNGSTR     (LUA_TSTRING | (1 << 4))  /* long strings */
@@ -182,7 +182,7 @@ void set_float(Value *v, lua_float n)
 
 
 // =========
-// Instructions 
+// Instructions
 // =========
 
 
@@ -313,7 +313,7 @@ uint32_t INDEXK(uint32_t x)
 }
 
 /* code a constant index as a RK value */
-//static 
+//static
 //uint32_t RKASK(uint32_t x)
 //{
 //    return (x | BITRK);
@@ -545,6 +545,36 @@ void error_default() {
     fprintf(stderr, "Error\n");
     exit(1);
 }
+
+void error_1() {
+    fprintf(stderr, "Error 1\n");
+    exit(1);
+}
+
+void error_2() {
+    fprintf(stderr, "Error 2\n");
+    exit(1);
+}
+
+void error_3() {
+    fprintf(stderr, "Error 3\n");
+    exit(1);
+}
+
+void error_4() {
+    fprintf(stderr, "Error 4\n");
+    exit(1);
+}
+
+void error_5() {
+    fprintf(stderr, "Error 5\n");
+    exit(1);
+}
+
+void error_6() {
+    fprintf(stderr, "Error 6\n");
+    exit(1);
+}
 //
 
 static
@@ -625,7 +655,7 @@ String * loadString(FILE * F)
         char * buff = calloc(size, 1);
         loadVector(F, buff, 1, size-1);
         buff[size] = '\0';
-       
+
         String *string = calloc(1, sizeof(String));
         string->typ = LONG_STRING;
         string->str = buff;
@@ -698,7 +728,7 @@ Proto * loadFunction(FILE *F, String *parent_source)
         if (f->sizek < 0) { error("negative size, wtf"); }
 
         f->k = calloc(f->sizek, sizeof(Value));
-        for(int i=0; i < f->sizek; i++){ 
+        for(int i=0; i < f->sizek; i++){
             loadValue(F, &f->k[i]);
         }
     }
@@ -741,7 +771,7 @@ Proto * loadChunkBytecode(FILE *F)
 {
 
     // Header
-    { 
+    {
         if (!checkLiteral(F, LUA_SIGNATURE)) { error("bad signature"); }
         if (loadByte(F) != LUA_VERSION) { error("lua version mismatch"); }
         if (loadByte(F) != LUAC_FORMAT) { error("luac format mismatch"); }
@@ -803,7 +833,7 @@ void printValue(Value *v)
       break;
 
     case LUA_TBOOLEAN:
-      printf("%s\n", ( get_bool(v) ? "true" : "false")); 
+      printf("%s\n", ( get_bool(v) ? "true" : "false"));
       break;
 
     case LUA_TNUMFLT:
@@ -893,7 +923,7 @@ void vm_ADD(Value *out, Value *v1, Value *v2)
     } else {
         error("type error - vm_ADD");
         assert(0);
-    } 
+    }
 }
 
 static
@@ -912,7 +942,7 @@ void vm_SUB(Value *out, Value *v1, Value *v2)
     } else {
         error("type error - vm_SUB");
         assert(0);
-    } 
+    }
 }
 
 static
@@ -932,7 +962,7 @@ void vm_MUL(Value *out, Value *v1, Value *v2)
         error("type error");
         error("vm_MUL");
         assert(0);
-    } 
+    }
 }
 
 static
@@ -966,7 +996,7 @@ void vm_MOD(Value *out, Value *v1, Value *v2)
     } else {
         error("type error - vm_MOD");
         assert(0);
-    } 
+    }
 
 }
 
@@ -987,7 +1017,7 @@ void vm_IDIV(Value *out, Value *v1, Value *v2)
     } else {
         error("type error - vm_IDIV");
         assert(0);
-    } 
+    }
 }
 
 static
@@ -1073,7 +1103,7 @@ uint32_t vm_LT(Value *v1, Value *v2)
   } else {
     error("type error - vm_LT");
     assert(0);
-  } 
+  }
 }
 
 uint32_t vm_LE(Value *v1, Value *v2)
@@ -1091,7 +1121,7 @@ uint32_t vm_LE(Value *v1, Value *v2)
   } else {
     error("type error - vm_LE");
     assert(0);
-  } 
+  }
 }
 
 //
@@ -1132,49 +1162,49 @@ size_t step_in_C(MiniLuaState *mls, Instruction inst, uint32_t op, Value *consta
             Value *b = RK(B(inst));
             Value *c = RK(C(inst));
             vm_ADD(a,b,c);
-        } break; 
+        } break;
 
         case OP_SUB: {
             Value *a = R(A(inst));
             Value *b = RK(B(inst));
             Value *c = RK(C(inst));
             vm_SUB(a,b,c);
-        } break; 
+        } break;
 
         case OP_MUL: {
             Value *a = R(A(inst));
             Value *b = RK(B(inst));
             Value *c = RK(C(inst));
             vm_MUL(a,b,c);
-        } break; 
+        } break;
 
         case OP_DIV: {
             Value *a = R(A(inst));
             Value *b = RK(B(inst));
             Value *c = RK(C(inst));
             vm_DIV(a,b,c);
-        } break; 
+        } break;
 
         case OP_MOD: {
             Value *a = R(A(inst));
             Value *b = RK(B(inst));
             Value *c = RK(C(inst));
             vm_MOD(a,b,c);
-        } break; 
+        } break;
 
         case OP_IDIV: {
             Value *a = R(A(inst));
             Value *b = RK(B(inst));
             Value *c = RK(C(inst));
             vm_IDIV(a,b,c);
-        } break; 
+        } break;
 
         case OP_POW: {
             Value *a = R(A(inst));
             Value *b = RK(B(inst));
             Value *c = RK(C(inst));
             vm_POW(a,b,c);
-        } break; 
+        } break;
 
         case OP_UNM: {
             Value *a = R(A(inst));
@@ -1199,7 +1229,7 @@ size_t step_in_C(MiniLuaState *mls, Instruction inst, uint32_t op, Value *consta
             uint32_t a = A(inst);
             Value *b = RK(B(inst));
             Value *c = RK(C(inst));
-            if ( vm_EQ(b, c) != a ) { 
+            if ( vm_EQ(b, c) != a ) {
                 pc_offset++;
             }
         } break;
@@ -1208,7 +1238,7 @@ size_t step_in_C(MiniLuaState *mls, Instruction inst, uint32_t op, Value *consta
             uint32_t a = A(inst);
             Value *b = RK(B(inst));
             Value *c = RK(C(inst));
-            if ( vm_LT(b, c) != a ) { 
+            if ( vm_LT(b, c) != a ) {
                 pc_offset++;
             }
         } break;
@@ -1217,7 +1247,7 @@ size_t step_in_C(MiniLuaState *mls, Instruction inst, uint32_t op, Value *consta
             uint32_t a = A(inst);
             Value *b = RK(B(inst));
             Value *c = RK(C(inst));
-            if ( vm_LE(b, c) != a ) { 
+            if ( vm_LE(b, c) != a ) {
                 pc_offset++;
             }
         } break;
@@ -1234,7 +1264,7 @@ size_t step_in_C(MiniLuaState *mls, Instruction inst, uint32_t op, Value *consta
             if (vm_LE(init, limit)) {
                 pc_offset = sbx;
                 *var = *init;
-            } 
+            }
         } break;
 
         case OP_FORPREP: {
@@ -1242,7 +1272,7 @@ size_t step_in_C(MiniLuaState *mls, Instruction inst, uint32_t op, Value *consta
             int32_t sbx = sBx(inst);
             Value *init = R(ia + 0);
             Value *step = R(ia + 2);
-            
+
             vm_SUB(init, init, step);
             pc_offset = sbx;
         } break;
@@ -1252,7 +1282,7 @@ size_t step_in_C(MiniLuaState *mls, Instruction inst, uint32_t op, Value *consta
             exit(1);
             break;
     }
-    
+
     return pc_offset;
 }
 
@@ -1315,7 +1345,7 @@ int main(int argc, char **argv)
             exit(1);
         }
     }
-    
+
     MiniLuaState *mls = calloc(1, sizeof(MiniLuaState));
     mls->proto = loadChunkBytecode(F);
     mls->registers = calloc(mls->proto->maxstacksize, sizeof(Value));
@@ -1324,7 +1354,7 @@ int main(int argc, char **argv)
     }
     mls->return_begin = 0;
     mls->return_end = 0;
-    
+
     for (int i=0; i < niter; i++) {
         interpret(mls);
     }
@@ -1335,4 +1365,3 @@ int main(int argc, char **argv)
 
     return 0;
 }
-
