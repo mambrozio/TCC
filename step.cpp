@@ -204,24 +204,24 @@ typedef struct MiniLuaState {
 
 //Function definitions
 //TODO put this on a header file
-llvm::Value *create_op_move_block();
-llvm::Value *create_op_loadk_block();
-llvm::Value *create_op_add_block();
-llvm::Value *create_op_sub_block();
-llvm::Value *create_op_mul_block();
-llvm::Value *create_op_div_block();
-llvm::Value *create_op_mod_block();
-llvm::Value *create_op_idiv_block();
-llvm::Value *create_op_pow_block();
-llvm::Value *create_op_unm_block();
-llvm::Value *create_op_not_block();
-llvm::Value *create_op_jmp_block();
+llvm::Value* create_op_move_block();
+llvm::Value* create_op_loadk_block();
+llvm::Value* create_op_add_block();
+llvm::Value* create_op_sub_block();
+llvm::Value* create_op_mul_block();
+llvm::Value* create_op_div_block();
+llvm::Value* create_op_mod_block();
+llvm::Value* create_op_idiv_block();
+llvm::Value* create_op_pow_block();
+llvm::Value* create_op_unm_block();
+llvm::Value* create_op_not_block();
+llvm::Value* create_op_jmp_block();
 
-void create_op_eq_block();
-llvm::Value *create_op_lt_block();
-llvm::Value *create_op_le_block();
-llvm::Value *create_op_forloop_block();
-llvm::Value *create_op_forprep_block();
+llvm::Value* create_op_eq_block();
+llvm::Value* create_op_lt_block();
+llvm::Value* create_op_le_block();
+llvm::Value* create_op_forloop_block();
+llvm::Value* create_op_forprep_block();
 
 
 
@@ -380,6 +380,17 @@ llvm::BasicBlock *op_unm_2_block;
 llvm::BasicBlock *op_not_1_block;
 llvm::BasicBlock *op_not_2_block;
 llvm::BasicBlock *op_not_3_block;
+
+llvm::BasicBlock *op_eq_1_block;
+llvm::BasicBlock *op_eq_2_block;
+llvm::BasicBlock *op_eq_3_block;
+llvm::BasicBlock *op_eq_4_block;
+llvm::BasicBlock *op_eq_5_block;
+llvm::BasicBlock *op_eq_6_block;
+llvm::BasicBlock *op_eq_7_block;
+llvm::BasicBlock *op_eq_8_block;
+llvm::BasicBlock *op_eq_9_block;
+llvm::BasicBlock *op_eq_10_block;
 
 llvm::BasicBlock *op_lt_1_block;
 llvm::BasicBlock *op_lt_2_block;
@@ -585,7 +596,7 @@ int main() {
     end_block = llvm::BasicBlock::Create(context, "end", step_func);
 
     //create op's blocks
-    op_eq_block = llvm::BasicBlock::Create(context, "op_eq", step_func);
+    // op_eq_block = llvm::BasicBlock::Create(context, "op_eq", step_func);
     // op_forloop_block = llvm::BasicBlock::Create(context, "op_forloop", step_func);
     // op_forprep_block = llvm::BasicBlock::Create(context, "op_forprep", step_func);
     default_block = llvm::BasicBlock::Create(context, "op_default", step_func);
@@ -667,8 +678,9 @@ int main() {
 
     //create OP_EQ
     builder.SetInsertPoint(op_eq_block);
-    llvm::Value *return_from_op_eq = builder.CreateCall(step_in_C, step_args);
-    builder.CreateBr(end_block);
+    // llvm::Value *return_from_op_eq = builder.CreateCall(step_in_C, step_args);
+    llvm::Value *return_from_op_eq = create_op_eq_block();
+    // builder.CreateBr(end_block);
 
     //create OP_LT
     builder.SetInsertPoint(op_lt_block);
@@ -748,8 +760,7 @@ int main() {
     return_phi_node->addIncoming(return_from_op_unm, op_unm_2_block);
     return_phi_node->addIncoming(return_from_op_not, op_not_3_block);
     return_phi_node->addIncoming(return_from_op_jmp, op_jmp_block);
-
-    return_phi_node->addIncoming(return_from_op_eq, op_eq_block);
+    return_phi_node->addIncoming(return_from_op_eq, op_eq_10_block);
     return_phi_node->addIncoming(return_from_op_lt, op_lt_11_block);
     return_phi_node->addIncoming(return_from_op_le, op_le_11_block);
     return_phi_node->addIncoming(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)), op_forloop_13_block);
@@ -2253,8 +2264,155 @@ llvm::Value* create_op_jmp_block() {
     return sbx;
 }
 
-void create_op_eq_block() {
+llvm::Value* create_op_eq_block() {
+    op_eq_block = llvm::BasicBlock::Create(context, "op_eq", step_func);
 
+    op_eq_1_block = llvm::BasicBlock::Create(context, "op_eq_1", step_func);
+    op_eq_2_block = llvm::BasicBlock::Create(context, "op_eq_2", step_func);
+    op_eq_3_block = llvm::BasicBlock::Create(context, "op_eq_3", step_func);
+    op_eq_4_block = llvm::BasicBlock::Create(context, "op_eq_4", step_func);
+    op_eq_5_block = llvm::BasicBlock::Create(context, "op_eq_5", step_func);
+    op_eq_6_block = llvm::BasicBlock::Create(context, "op_eq_6", step_func);
+    op_eq_7_block = llvm::BasicBlock::Create(context, "op_eq_7", step_func);
+    op_eq_8_block = llvm::BasicBlock::Create(context, "op_eq_8", step_func);
+    op_eq_9_block = llvm::BasicBlock::Create(context, "op_eq_9", step_func);
+    op_eq_10_block = llvm::BasicBlock::Create(context, "op_eq_10", step_func);
+
+    builder.SetInsertPoint(op_eq_block);
+    std::vector<llvm::Value *> temp;
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
+    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
+    llvm::Value *a = create_A(); // A(inst);
+    llvm::Value *b_inst = create_B();
+    std::vector<llvm::Value *> rkb_return = create_rk(b_inst, registers_LD);
+    llvm::Value *rkb = rkb_return[2];
+    llvm::Value *rkb_LD = builder.CreateLoad(rkb);
+    llvm::Value *c_inst = create_C();
+    std::vector<llvm::Value *> rkc_return = create_rk(c_inst, registers_LD);
+    llvm::Value *rkc = rkc_return[2];
+    llvm::Value *rkc_LD = builder.CreateLoad(rkc);
+    llvm::SwitchInst *switch_type = builder.CreateSwitch(rkb_LD, error_block, 4);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)), op_eq_1_block);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)), op_eq_2_block);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_eq_4_block);
+    switch_type->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), op_eq_7_block);
+
+    builder.SetInsertPoint(op_eq_1_block); // TNIL
+    llvm::Value *rkc_is_nil = builder.CreateICmpEQ(rkc_LD, llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
+    builder.CreateBr(op_eq_10_block);
+
+    builder.SetInsertPoint(op_eq_2_block); // TBOOLEAN
+    llvm::Value *rkc_is_bool = builder.CreateICmpEQ(rkc_LD, llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    builder.CreateCondBr(rkc_is_bool, op_eq_10_block, op_eq_3_block);
+
+    builder.SetInsertPoint(op_eq_3_block);
+    temp.clear();
+    temp.push_back(rkb_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *rkb_value = builder.CreateInBoundsGEP(value_struct_type, rkb_return[1], temp);
+    llvm::Value *rkb_value_bitcast = builder.CreateBitCast(rkb_value, llvm::Type::getInt32PtrTy(context));
+    llvm::Value *rkb_value_load = builder.CreateLoad(rkb_value_bitcast);
+    temp.clear();
+    temp.push_back(rkc_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *rkc_value = builder.CreateInBoundsGEP(value_struct_type, rkc_return[1], temp);
+    llvm::Value *rkc_value_bitcast = builder.CreateBitCast(rkc_value, llvm::Type::getInt32PtrTy(context));
+    llvm::Value *rkc_value_load = builder.CreateLoad(rkc_value_bitcast);
+    llvm::Value *rkb_rkc_compare_bool = builder.CreateICmpEQ(rkb_value_load, rkc_value_load);
+    builder.CreateBr(op_eq_10_block);
+
+    builder.SetInsertPoint(op_eq_4_block);  //TNUMFLT
+    llvm::SwitchInst *switch_type_2 = builder.CreateSwitch(rkc_LD, op_eq_10_block, 2);
+    switch_type_2->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_eq_5_block);
+    switch_type_2->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), op_eq_6_block);
+
+    builder.SetInsertPoint(op_eq_5_block); //rkc is float
+    temp.clear();
+    temp.push_back(rkb_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *rkb_value_2 = builder.CreateInBoundsGEP(value_struct_type, rkb_return[1], temp);
+    llvm::Value *rkb_value_bitcast_2 = builder.CreateBitCast(rkb_value_2, llvm::Type::getDoublePtrTy(context));
+    llvm::Value *rkb_value_load_2 = builder.CreateLoad(rkb_value_bitcast_2);
+    temp.clear();
+    temp.push_back(rkc_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *rkc_value_2 = builder.CreateInBoundsGEP(value_struct_type, rkc_return[1], temp);
+    llvm::Value *rkc_value_bitcast_2 = builder.CreateBitCast(rkc_value_2, llvm::Type::getDoublePtrTy(context));
+    llvm::Value *rkc_value_load_2 = builder.CreateLoad(rkc_value_bitcast_2);
+    llvm::Value *rkb_rkc_compare_fcmp = builder.CreateFCmpOEQ(rkb_value_load_2, rkc_value_load_2);
+    builder.CreateBr(op_eq_10_block);
+
+    builder.SetInsertPoint(op_eq_6_block); //rkc is int (convert to float and compare)
+    temp.clear();
+    temp.push_back(rkb_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *rkb_value_3 = builder.CreateInBoundsGEP(value_struct_type, rkb_return[1], temp);
+    llvm::Value *rkb_value_bitcast_3 = builder.CreateBitCast(rkb_value_3, llvm::Type::getDoublePtrTy(context));
+    llvm::Value *rkb_value_load_3 = builder.CreateLoad(rkb_value_bitcast_3);
+    temp.clear();
+    temp.push_back(rkc_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *rkc_value_3 = builder.CreateInBoundsGEP(value_struct_type, rkc_return[1], temp);
+    llvm::Value *rkc_value_load_3 = builder.CreateLoad(rkc_value_3);
+    llvm::Value *rkc_value_sitofp = builder.CreateSIToFP(rkc_value_load_3, llvm::Type::getDoubleTy(context));
+    llvm::Value *rkb_rkcint_compare_fcmp = builder.CreateFCmpOEQ(rkb_value_load_3, rkc_value_sitofp);
+    builder.CreateBr(op_eq_10_block);
+
+
+    builder.SetInsertPoint(op_eq_7_block);  //TNUMINT
+    llvm::SwitchInst *switch_type_3 = builder.CreateSwitch(rkc_LD, op_eq_10_block, 2);
+    switch_type_3->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), op_eq_8_block);
+    switch_type_3->addCase(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), op_eq_9_block);
+
+    builder.SetInsertPoint(op_eq_8_block);
+    temp.clear();
+    temp.push_back(rkb_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *rkb_value_4 = builder.CreateInBoundsGEP(value_struct_type, rkb_return[1], temp);
+    llvm::Value *rkb_value_load_4 = builder.CreateLoad(rkb_value_4);
+    temp.clear();
+    temp.push_back(rkc_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *rkc_value_4 = builder.CreateInBoundsGEP(value_struct_type, rkc_return[1], temp);
+    llvm::Value *rkc_value_load_4 = builder.CreateLoad(rkc_value_4);
+    llvm::Value *rkb_rkc_compare_icmp = builder.CreateICmpEQ(rkb_value_load_4, rkc_value_load_4);
+    builder.CreateBr(op_eq_10_block);
+
+    builder.SetInsertPoint(op_eq_9_block);
+    temp.clear();
+    temp.push_back(rkb_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *rkb_value_5 = builder.CreateInBoundsGEP(value_struct_type, rkb_return[1], temp);
+    llvm::Value *rkb_value_load_5 = builder.CreateLoad(rkb_value_5);
+    llvm::Value *rkb_value_sitofp = builder.CreateSIToFP(rkb_value_load_5, llvm::Type::getDoubleTy(context));
+    temp.clear();
+    temp.push_back(rkc_return[0]);
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
+    llvm::Value *rkc_value_5 = builder.CreateInBoundsGEP(value_struct_type, rkc_return[1], temp);
+    llvm::Value *rkc_value_bitcast_5 = builder.CreateBitCast(rkc_value_5, llvm::Type::getDoublePtrTy(context));
+    llvm::Value *rkc_value_load_5 = builder.CreateLoad(rkc_value_bitcast_5);
+    llvm::Value *rkbint_rkc_compare_fcmp = builder.CreateFCmpOEQ(rkb_value_sitofp, rkc_value_load_5);
+    builder.CreateBr(op_eq_10_block);
+
+    builder.SetInsertPoint(op_eq_10_block);
+    llvm::PHINode *phi_node = builder.CreatePHI(llvm::Type::getInt1Ty(context), 7);
+    phi_node->addIncoming(rkc_is_nil, op_eq_1_block);
+    phi_node->addIncoming(llvm::ConstantInt::get(context, llvm::APInt(1, 0, true)), op_eq_2_block);
+    phi_node->addIncoming(rkb_rkc_compare_bool, op_eq_3_block);
+    phi_node->addIncoming(llvm::ConstantInt::get(context, llvm::APInt(1, 0, true)), op_eq_4_block);
+    phi_node->addIncoming(rkb_rkc_compare_fcmp, op_eq_5_block);
+    phi_node->addIncoming(rkb_rkcint_compare_fcmp, op_eq_6_block);
+    phi_node->addIncoming(llvm::ConstantInt::get(context, llvm::APInt(1, 0, true)), op_eq_7_block);
+    phi_node->addIncoming(rkb_rkc_compare_icmp, op_eq_8_block);
+    phi_node->addIncoming(rkbint_rkc_compare_fcmp, op_eq_9_block);
+    llvm::Value *zext = builder.CreateZExt(phi_node, llvm::Type::getInt32Ty(context));
+    llvm::Value *icmp_ne = builder.CreateICmpNE(zext, a);
+    llvm::Value *zext_2 = builder.CreateZExt(icmp_ne, llvm::Type::getInt64Ty(context));
+    builder.CreateBr(end_block);
+
+    return zext_2;
 }
 
 llvm::Value* create_op_lt_block() {
