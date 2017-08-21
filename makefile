@@ -2,7 +2,7 @@ CC:=gcc
 CFLAGS:=--std=c11 --pedantic -Wall -Wextra -lm -O3
 
 LLC:=llc
-LLCFLAGS:=-O3
+LLCFLAGS:=-O3 -filetype=obj
 
 SOURCES := $(wildcard examples/*.lua)
 BYTECODES := $(patsubst %.lua,%.byte,$(SOURCES))
@@ -26,8 +26,6 @@ hybrid: hybrid.c interpret.cpp step.cpp
 	./step
 	$(LLC) $(LLCFLAGS) interpret.ll
 	$(LLC) $(LLCFLAGS) step.ll
-	gcc -c interpret.s $(CFLAGS)
-	gcc -c step.s $(CFLAGS)
 	$(CC) $(CFLAGS) $< interpret.o step.o -o $@
 
 clean:
