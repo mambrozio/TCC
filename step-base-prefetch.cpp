@@ -243,6 +243,7 @@ llvm::PointerType *p_proto_struct_type;
 llvm::StructType *miniluastate_struct_type;
 llvm::PointerType *p_miniluastate_struct_type;
 
+llvm::FunctionType *step_type;
 llvm::Function *step_func;
 llvm::Value *_mls;
 llvm::Value *_inst;
@@ -449,23 +450,15 @@ llvm::BasicBlock *op_forprep_11_block;
 //
 
 
-int main() {
+//Variable R(A) on pre fetch
+std::vector<llvm::Value *> ra_prefetch;
 
-    //necessary LLVM initializations
-    llvm::InitializeNativeTarget();
-    llvm::InitializeNativeTargetAsmPrinter();
-    llvm::InitializeNativeTargetAsmParser();
+llvm::Value *registers_LD;
+llvm::Value *registers_GEP;
 
-    //create the context and the main module
-//    llvm::LLVMContext context;
-//    std::unique_ptr<llvm::Module> Owner(new llvm::Module("step_module", context));
-//    llvm::Module *module = Owner.get();
+std::vector<llvm::Value *> create_ra(llvm::Value *registers_LD);
 
-
-    // --- Declarations
-    //treating string_type enum as an int32
-
-    //create String struct
+void create_string_struct() {
     string_struct_type = llvm::StructType::create(context, "String");
     p_string_struct_type = llvm::PointerType::get(string_struct_type, 0);
     std::vector<llvm::Type *> string_elements;
@@ -475,8 +468,9 @@ int main() {
     // std::cout << "Struct String dump:\n";
     // string_struct_type->dump();
     // std::cout << "\n";
+}
 
-    //create Value struct
+void create_value_struct() {
     value_struct_type = llvm::StructType::create(context, "Value");
     p_value_struct_type = llvm::PointerType::get(value_struct_type, 0);
     std::vector<llvm::Type *> value_elements;
@@ -486,8 +480,9 @@ int main() {
     // std::cout << "Struct Value dump:\n";
     // value_struct_type->dump();
     // std::cout << "\n";
+}
 
-    //create Proto struct
+void create_proto_struct() {
     proto_struct_type = llvm::StructType::create(context, "Proto");
     p_proto_struct_type = llvm::PointerType::get(proto_struct_type, 0);
     std::vector<llvm::Type *> proto_elements;
@@ -507,8 +502,9 @@ int main() {
     // std::cout << "Struct Proto dump:\n";
     // proto_struct_type->dump();
     // std::cout << "\n";
+}
 
-    //create MiniLuaState struct
+void create_miniluastate_struct() {
     miniluastate_struct_type = llvm::StructType::create(context, "MiniLuaState");
     p_miniluastate_struct_type = llvm::PointerType::get(miniluastate_struct_type, 0);
     std::vector<llvm::Type *> miniluastate_elements;
@@ -520,23 +516,60 @@ int main() {
     // std::cout << "Struct MiniLuaState dump:\n";
     // miniluastate_struct_type->dump();
     // std::cout << "\n";
+}
 
-    //create declaration for step
-    //int step(MiniLuaState *mls, Instruction inst, uint32_t op, Value *constants);
+void create_step_decl() {
     std::vector<llvm::Type *> args;
     args.push_back(p_miniluastate_struct_type);      //*mls
     args.push_back(llvm::Type::getInt32Ty(context)); //inst
     args.push_back(llvm::Type::getInt32Ty(context)); //op
     args.push_back(p_value_struct_type);             //constants
-    llvm::FunctionType *step_type = llvm::FunctionType::get(llvm::Type::getInt64Ty(context), args, false);
+    step_type = llvm::FunctionType::get(llvm::Type::getInt64Ty(context), args, false);
     step_func = llvm::Function::Create(step_type, llvm::Function::ExternalLinkage, "step", module);
+}
 
-    //get arguments
+void init_step_args() {
     auto argiter = step_func->arg_begin();
     _mls = &*argiter++;
     _inst = &*argiter++;
     _op = &*argiter++;
     _constants = &*argiter++;
+}
+
+int main() {
+
+    //necessary LLVM initializations
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+    llvm::InitializeNativeTargetAsmParser();
+
+    //create the context and the main module
+//    llvm::LLVMContext context;
+//    std::unique_ptr<llvm::Module> Owner(new llvm::Module("step_module", context));
+//    llvm::Module *module = Owner.get();
+
+
+    // --- Declarations
+    //treating string_type enum as an int32
+
+    //create String struct
+    create_string_struct();
+
+    //create Value struct
+    create_value_struct();
+
+    //create Proto struct
+    create_proto_struct();
+
+    //create MiniLuaState struct
+    create_miniluastate_struct();
+
+    //create declaration for step
+    //int step(MiniLuaState *mls, Instruction inst, uint32_t op, Value *constants);
+    create_step_decl();
+
+    //get arguments
+    init_step_args();
     //_mls->setName("arg");
 
     // std::cout << "Arguments received by interpret function dump:\n";
@@ -614,6 +647,14 @@ int main() {
 
     // --- Create code for the entry block
     builder.SetInsertPoint(entry_block);
+
+    //obtaining ra before the switch
+    std::vector<llvm::Value *> temp;
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
+    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
+    registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
+    registers_LD = builder.CreateLoad(registers_GEP);
+    ra_prefetch = create_ra(registers_LD);
 
     llvm::SwitchInst *theSwitch = builder.CreateSwitch(_op, default_block, 18);
 
@@ -796,7 +837,7 @@ int main() {
     // std::cout << "\n";
 
     //dump module to check ir
-    freopen("step.ll", "w", stderr);
+    freopen("step-base-prefetch.ll", "w", stderr);
     module->dump();
 
     return 0;
@@ -952,13 +993,8 @@ llvm::Value* create_op_move_block() {
     builder.SetInsertPoint(op_move_block);
 
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    llvm::Value *ra = create_ra(registers_LD)[1];
-    llvm::Value *ra_bitcast = create_bitcast(ra);
+    llvm::Value *ra_bitcast = create_bitcast(ra_prefetch[1]);
     llvm::Value *rb = create_rb(registers_LD)[1];
     llvm::Value *rb_bitcast = create_bitcast(rb);
 
@@ -980,13 +1016,8 @@ llvm::Value* create_op_loadk_block() {
     builder.SetInsertPoint(op_loadk_block);
 
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    llvm::Value *ra = create_ra(registers_LD)[1];
-    llvm::Value *ra_bitcast = create_bitcast(ra);
+    llvm::Value *ra_bitcast = create_bitcast(ra_prefetch[1]);
     llvm::Value *rb = create_krbx();
     llvm::Value *rb_bitcast = create_bitcast(rb);
 
@@ -1019,13 +1050,8 @@ llvm::Value* create_op_add_block() {
 
     //
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    std::vector<llvm::Value *> ra_ret = create_ra(registers_LD);
-    llvm::Value *ra = ra_ret[1]; //Value *a = R(A(inst));
+    llvm::Value *ra = ra_prefetch[1]; //Value *a = R(A(inst));
 
     llvm::Value *b_inst = create_B();
     std::vector<llvm::Value *> rkb_return = create_rk(b_inst, registers_LD);
@@ -1078,7 +1104,7 @@ llvm::Value* create_op_add_block() {
     builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), a_type);
 
     temp.clear();
-    temp.push_back(ra_ret[0]);
+    temp.push_back(ra_prefetch[0]);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
     // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
     llvm::Value *a_value = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
@@ -1156,7 +1182,7 @@ llvm::Value* create_op_add_block() {
     llvm::Value *a_type_2 = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
     builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), a_type_2);
     temp.clear();
-    temp.push_back(ra_ret[0]);
+    temp.push_back(ra_prefetch[0]);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
     // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
     llvm::Value *a_value_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
@@ -1187,13 +1213,8 @@ llvm::Value* create_op_sub_block() {
 
     //
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    std::vector<llvm::Value *> ra_ret = create_ra(registers_LD);
-    llvm::Value *ra = ra_ret[1]; //Value *a = R(A(inst));
+    llvm::Value *ra = ra_prefetch[1]; //Value *a = R(A(inst));
 
     llvm::Value *b_inst = create_B();
     std::vector<llvm::Value *> rkb_return = create_rk(b_inst, registers_LD);
@@ -1246,7 +1267,7 @@ llvm::Value* create_op_sub_block() {
     builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), a_type);
 
     temp.clear();
-    temp.push_back(ra_ret[0]);
+    temp.push_back(ra_prefetch[0]);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
     // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
     llvm::Value *a_value = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
@@ -1324,7 +1345,7 @@ llvm::Value* create_op_sub_block() {
     llvm::Value *a_type_2 = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
     builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), a_type_2);
     temp.clear();
-    temp.push_back(ra_ret[0]);
+    temp.push_back(ra_prefetch[0]);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
     // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
     llvm::Value *a_value_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
@@ -1355,13 +1376,8 @@ llvm::Value* create_op_mul_block() {
 
     //
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    std::vector<llvm::Value *> ra_ret = create_ra(registers_LD);
-    llvm::Value *ra = ra_ret[1]; //Value *a = R(A(inst));
+    llvm::Value *ra = ra_prefetch[1]; //Value *a = R(A(inst));
 
     llvm::Value *b_inst = create_B();
     std::vector<llvm::Value *> rkb_return = create_rk(b_inst, registers_LD);
@@ -1414,7 +1430,7 @@ llvm::Value* create_op_mul_block() {
     builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), a_type);
 
     temp.clear();
-    temp.push_back(ra_ret[0]);
+    temp.push_back(ra_prefetch[0]);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
     // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
     llvm::Value *a_value = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
@@ -1492,7 +1508,7 @@ llvm::Value* create_op_mul_block() {
     llvm::Value *a_type_2 = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
     builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), a_type_2);
     temp.clear();
-    temp.push_back(ra_ret[0]);
+    temp.push_back(ra_prefetch[0]);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
     // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
     llvm::Value *a_value_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
@@ -1521,13 +1537,8 @@ llvm::Value* create_op_div_block() {
 
     //
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    std::vector<llvm::Value *> ra_ret = create_ra(registers_LD);
-    llvm::Value *ra = ra_ret[1]; //Value *a = R(A(inst));
+    llvm::Value *ra = ra_prefetch[1]; //Value *a = R(A(inst));
 
     llvm::Value *b_inst = create_B();
     std::vector<llvm::Value *> rkb_return = create_rk(b_inst, registers_LD);
@@ -1618,7 +1629,7 @@ llvm::Value* create_op_div_block() {
     llvm::Value *a_type_2 = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
     builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), a_type_2);
     temp.clear();
-    temp.push_back(ra_ret[0]);
+    temp.push_back(ra_prefetch[0]);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
     // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
     llvm::Value *a_value_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
@@ -1651,13 +1662,8 @@ llvm::Value* create_op_mod_block() {
 
     //
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    std::vector<llvm::Value *> ra_ret = create_ra(registers_LD);
-    llvm::Value *ra = ra_ret[1]; //Value *a = R(A(inst));
+    llvm::Value *ra = ra_prefetch[1]; //Value *a = R(A(inst));
 
     llvm::Value *b_inst = create_B();
     std::vector<llvm::Value *> rkb_return = create_rk(b_inst, registers_LD);
@@ -1711,7 +1717,7 @@ llvm::Value* create_op_mod_block() {
     builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), a_type);
 
     temp.clear();
-    temp.push_back(ra_ret[0]);
+    temp.push_back(ra_prefetch[0]);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
     // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
     llvm::Value *a_value = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
@@ -1789,7 +1795,7 @@ llvm::Value* create_op_mod_block() {
     llvm::Value *a_type_2 = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
     builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), a_type_2);
     temp.clear();
-    temp.push_back(ra_ret[0]);
+    temp.push_back(ra_prefetch[0]);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
     // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
     llvm::Value *a_value_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
@@ -1820,13 +1826,8 @@ llvm::Value* create_op_idiv_block() {
 
     //
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    std::vector<llvm::Value *> ra_ret = create_ra(registers_LD);
-    llvm::Value *ra = ra_ret[1]; //Value *a = R(A(inst));
+    llvm::Value *ra = ra_prefetch[1]; //Value *a = R(A(inst));
 
     llvm::Value *b_inst = create_B();
     std::vector<llvm::Value *> rkb_return = create_rk(b_inst, registers_LD);
@@ -1879,7 +1880,7 @@ llvm::Value* create_op_idiv_block() {
     builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), a_type);
 
     temp.clear();
-    temp.push_back(ra_ret[0]);
+    temp.push_back(ra_prefetch[0]);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
     // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
     llvm::Value *a_value = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
@@ -1960,7 +1961,7 @@ llvm::Value* create_op_idiv_block() {
     llvm::Value *a_type_2 = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
     builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), a_type_2);
     temp.clear();
-    temp.push_back(ra_ret[0]);
+    temp.push_back(ra_prefetch[0]);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
     // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
     llvm::Value *a_value_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
@@ -1989,13 +1990,8 @@ llvm::Value* create_op_pow_block() {
 
     //
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    std::vector<llvm::Value *> ra_ret = create_ra(registers_LD);
-    llvm::Value *ra = ra_ret[1]; //Value *a = R(A(inst));
+    llvm::Value *ra = ra_prefetch[1]; //Value *a = R(A(inst));
 
     llvm::Value *b_inst = create_B();
     std::vector<llvm::Value *> rkb_return = create_rk(b_inst, registers_LD);
@@ -2089,7 +2085,7 @@ llvm::Value* create_op_pow_block() {
     llvm::Value *a_type_2 = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
     builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), a_type_2);
     temp.clear();
-    temp.push_back(ra_ret[0]);
+    temp.push_back(ra_prefetch[0]);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
     // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
     llvm::Value *a_value_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
@@ -2111,13 +2107,8 @@ llvm::Value* create_op_unm_block() {
     builder.SetInsertPoint(op_unm_block);
 
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    std::vector<llvm::Value *> ra_return = create_ra(registers_LD);
-    llvm::Value * ra = ra_return[1];
+    llvm::Value * ra = ra_prefetch[1];
 
     /* R(B()) */
     llvm::Value *b_inst = create_B();
@@ -2148,7 +2139,7 @@ llvm::Value* create_op_unm_block() {
     llvm::Value *a_type_2 = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
     builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 3, true)), a_type_2);
     temp.clear();
-    temp.push_back(ra_return[0]);
+    temp.push_back(ra_prefetch[0]);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
     // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
     llvm::Value *a_value_2 = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
@@ -2173,7 +2164,7 @@ llvm::Value* create_op_unm_block() {
     llvm::Value *a_type = builder.CreateInBoundsGEP(value_struct_type, ra, temp);
     builder.CreateStore(llvm::ConstantInt::get(context, llvm::APInt(32, 19, true)), a_type);
     temp.clear();
-    temp.push_back(ra_return[0]);
+    temp.push_back(ra_prefetch[0]);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true)));
     // temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
     llvm::Value *a_value = builder.CreateInBoundsGEP(value_struct_type, registers_LD, temp);
@@ -2194,13 +2185,8 @@ llvm::Value* create_op_not_block() {
     builder.SetInsertPoint(op_not_block);
 
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    std::vector<llvm::Value *> ra_return = create_ra(registers_LD);
-    llvm::Value * ra = ra_return[1];
+    llvm::Value * ra = ra_prefetch[1];
 
     /* R(B()) */
     llvm::Value *b_inst = create_B();
@@ -2234,7 +2220,7 @@ llvm::Value* create_op_not_block() {
     phi_node->addIncoming(llvm::ConstantInt::getTrue(context), op_not_block);
     llvm::Value *phi_zext = builder.CreateZExt(phi_node, llvm::Type::getInt32Ty(context));
 
-    llvm::Value *a_inst_zext = builder.CreateZExt(ra_return[0], llvm::Type::getInt64Ty(context));
+    llvm::Value *a_inst_zext = builder.CreateZExt(ra_prefetch[0], llvm::Type::getInt64Ty(context));
     temp.clear();
     temp.push_back(a_inst_zext);
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 0, true)));
@@ -2280,11 +2266,8 @@ llvm::Value* create_op_eq_block() {
 
     builder.SetInsertPoint(op_eq_block);
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
-    llvm::Value *a = create_A(); // A(inst);
+
+    llvm::Value *a = ra_prefetch[0]; // A(inst);
     llvm::Value *b_inst = create_B();
     std::vector<llvm::Value *> rkb_return = create_rk(b_inst, registers_LD);
     llvm::Value *rkb = rkb_return[2];
@@ -2434,12 +2417,8 @@ llvm::Value* create_op_lt_block() {
 
     //
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    llvm::Value *a = create_A(); //Value *a = A(inst);
+    llvm::Value *a = ra_prefetch[0]; //Value *a = A(inst);
 
     llvm::Value *b_inst = create_B();
     std::vector<llvm::Value *> rkb_return = create_rk(b_inst, registers_LD);
@@ -2584,12 +2563,8 @@ llvm::Value* create_op_le_block() {
 
     //
     std::vector<llvm::Value *> temp;
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
-    temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(32, 1, true))); //registers offset
-    llvm::Value *registers_GEP = builder.CreateInBoundsGEP(miniluastate_struct_type, _mls, temp);
-    llvm::Value *registers_LD = builder.CreateLoad(registers_GEP);
 
-    llvm::Value *a = create_A(); //Value *a = A(inst);
+    llvm::Value *a = ra_prefetch[0]; //Value *a = A(inst);
 
     llvm::Value *b_inst = create_B();
     std::vector<llvm::Value *> rkb_return = create_rk(b_inst, registers_LD);
@@ -2738,7 +2713,7 @@ llvm::Value* create_op_forloop_block() {
     op_forloop_18_block = llvm::BasicBlock::Create(context, "op_forloop_18", step_func);
 
     builder.SetInsertPoint(op_forloop_block);
-    llvm::Value *a = create_A();
+    llvm::Value *a = ra_prefetch[0];
     llvm::Value *a_i64 = builder.CreateZExt(a, llvm::Type::getInt64Ty(context));
     std::vector<llvm::Value *> temp;
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));
@@ -2983,7 +2958,7 @@ llvm::Value* create_op_forprep_block() {
     op_forprep_11_block = llvm::BasicBlock::Create(context, "op_forprep_11", step_func);
 
     builder.SetInsertPoint(op_forprep_block);
-    llvm::Value *a = create_A();
+    llvm::Value *a = ra_prefetch[0];
     llvm::Value *a_i64 = builder.CreateZExt(a, llvm::Type::getInt64Ty(context));
     std::vector<llvm::Value *> temp;
     temp.push_back(llvm::ConstantInt::get(context, llvm::APInt(64, 0, true)));

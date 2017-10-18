@@ -2,7 +2,7 @@ CC:=gcc
 CFLAGS:=--std=c11 --pedantic -Wall -Wextra -lm -O3
 
 LLC:=llc
-LLCFLAGS:=-O3 -filetype=obj
+LLCFLAGS:=-O3
 
 SOURCES := $(wildcard examples/*.lua)
 BYTECODES := $(patsubst %.lua,%.byte,$(SOURCES))
@@ -13,23 +13,49 @@ GENERATED := $(BYTECODES) c-minilua
 
 all: $(GENERATED)
 
+hybrid-all: hybrid-base hybrid-base-prefetch hybrid-indirect
+
 examples/%.byte: examples/%.lua
 	luac -o $@ $<
 
 c-minilua: c-minilua.c
 	$(CC) $(CFLAGS) $< -o $@
 
-hybrid: hybrid.c interpret.cpp step.cpp
+hybrid-base: hybrid.c interpret.cpp step-base.cpp
 	clang++ -o interpret interpret.cpp `llvm-config --cxxflags --ldflags --libs all --system-libs`
 	./interpret
-	clang++ -o step step.cpp `llvm-config --cxxflags --ldflags --libs all --system-libs`
-	./step
+	clang++ -o step-base step-base.cpp `llvm-config --cxxflags --ldflags --libs all --system-libs`
+	./step-base
 	$(LLC) $(LLCFLAGS) interpret.ll
-	$(LLC) $(LLCFLAGS) step.ll
-	$(CC) $(CFLAGS) $< interpret.o step.o -o $@
+	$(LLC) $(LLCFLAGS) step-base.ll
+	gcc -c interpret.s $(CFLAGS)
+	gcc -c step-base.s $(CFLAGS)
+	$(CC) $(CFLAGS) $< interpret.o step-base.o -o hybrid-base
+
+hybrid-base-prefetch: hybrid.c interpret.cpp step-base-prefetch.cpp
+	clang++ -o interpret interpret.cpp `llvm-config --cxxflags --ldflags --libs all --system-libs`
+	./interpret
+	clang++ -o step-base-prefetch step-base-prefetch.cpp `llvm-config --cxxflags --ldflags --libs all --system-libs`
+	./step-base-prefetch
+	$(LLC) $(LLCFLAGS) interpret.ll
+	$(LLC) $(LLCFLAGS) step-base-prefetch.ll
+	gcc -c interpret.s $(CFLAGS)
+	gcc -c step-base-prefetch.s $(CFLAGS)
+	$(CC) $(CFLAGS) $< interpret.o step-base-prefetch.o -o hybrid-base-prefetch
+
+hybrid-indirect: hybrid.c interpret.cpp step-indirect.cpp
+	clang++ -o interpret interpret.cpp `llvm-config --cxxflags --ldflags --libs all --system-libs`
+	./interpret
+	clang++ -o step-indirect step-indirect.cpp `llvm-config --cxxflags --ldflags --libs all --system-libs`
+	./step-indirect
+	$(LLC) $(LLCFLAGS) interpret.ll
+	$(LLC) $(LLCFLAGS) step-indirect.ll
+	gcc -c interpret.s $(CFLAGS)
+	gcc -c step-indirect.s $(CFLAGS)
+	$(CC) $(CFLAGS) $< interpret.o step-indirect.o -o hybrid-indirect
 
 clean:
 	rm -rf $(GENERATED)
 
 clean-hybrid:
-	rm -rf interpret step interpret.ll step.ll interpret.s step.s interpret.o step.o hybrid
+	rm -rf interpret step-base step-base-prefetch step-indirect interpret.ll step-base.ll step-base-prefetch.ll step-indirect.ll interpret.s step-base.s step-base-prefetch.s step-indirect.s interpret.o step-base.o step-base-prefetch.o step-indirect.o hybrid-base hybrid-base-prefetch hybrid-indirect
