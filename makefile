@@ -2,7 +2,7 @@ CC:=gcc
 CFLAGS:=--std=c11 --pedantic -Wall -Wextra -lm -O3
 
 LLC:=llc
-LLCFLAGS:=-O3
+LLCFLAGS:=-O3 -filetype=obj
 
 SOURCES := $(wildcard examples/*.lua)
 BYTECODES := $(patsubst %.lua,%.byte,$(SOURCES))
@@ -13,7 +13,7 @@ GENERATED := $(BYTECODES) c-minilua
 
 all: $(GENERATED)
 
-hybrid-all: hybrid-base hybrid-base-prefetch hybrid-indirect
+hybrid-all: hybrid-base hybrid-base-prefetch
 
 examples/%.byte: examples/%.lua
 	luac -o $@ $<
@@ -28,8 +28,6 @@ hybrid-base: hybrid.c interpret.cpp step-base.cpp
 	./step-base
 	$(LLC) $(LLCFLAGS) interpret.ll
 	$(LLC) $(LLCFLAGS) step-base.ll
-	gcc -c interpret.s $(CFLAGS)
-	gcc -c step-base.s $(CFLAGS)
 	$(CC) $(CFLAGS) $< interpret.o step-base.o -o hybrid-base
 
 hybrid-base-prefetch: hybrid.c interpret.cpp step-base-prefetch.cpp
@@ -39,8 +37,6 @@ hybrid-base-prefetch: hybrid.c interpret.cpp step-base-prefetch.cpp
 	./step-base-prefetch
 	$(LLC) $(LLCFLAGS) interpret.ll
 	$(LLC) $(LLCFLAGS) step-base-prefetch.ll
-	gcc -c interpret.s $(CFLAGS)
-	gcc -c step-base-prefetch.s $(CFLAGS)
 	$(CC) $(CFLAGS) $< interpret.o step-base-prefetch.o -o hybrid-base-prefetch
 
 hybrid-indirect: hybrid.c interpret.cpp step-indirect.cpp
@@ -50,8 +46,6 @@ hybrid-indirect: hybrid.c interpret.cpp step-indirect.cpp
 	./step-indirect
 	$(LLC) $(LLCFLAGS) interpret.ll
 	$(LLC) $(LLCFLAGS) step-indirect.ll
-	gcc -c interpret.s $(CFLAGS)
-	gcc -c step-indirect.s $(CFLAGS)
 	$(CC) $(CFLAGS) $< interpret.o step-indirect.o -o hybrid-indirect
 
 clean:
